@@ -66,7 +66,16 @@ systemctl is-active --quiet apache2 && APACHE=1
 systemctl is-active --quiet fpdual-worker.timer && TIMER=1
 MAINT=1
 systemctl stop fpdual-worker.timer
-systemctl stop fpdual-worker.service
+# No interrumpir un envio en curso: esperar al trabajador antes de copiar.
+for ((i=0; i<60; i++)); do
+  state=$(systemctl show -p ActiveState --value fpdual-worker.service)
+  [[ "$state" != active && "$state" != activating && "$state" != deactivating ]] && break
+  sleep 1
+done
+if [[ "$state" == active || "$state" == activating || "$state" == deactivating ]]; then
+  echo 'El trabajador sigue ocupado; reintente mas tarde.' >&2
+  exit 1
+fi
 systemctl stop apache2
 install -d -o root -g root -m 0700 /var/backups/fpdual
 BACKUP=$(mktemp /var/backups/fpdual/update-XXXXXXXX.tar.gz)
