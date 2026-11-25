@@ -15,3 +15,6 @@ config.php
 /backups/
 /logs/
 *.log
+/seed.private.json
+/fpdual_directorio_privado.json
+/FPDual_instalar_con_directorio.sh

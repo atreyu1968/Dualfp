@@ -1,0 +1,14 @@
+[Unit]
+Description=FP Dual Conecta - Campañas y recordatorios
+After=network-online.target
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+ExecStart=/usr/bin/php /usr/local/lib/fpdual/worker.php
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fpdual
+TimeoutStartSec=45
