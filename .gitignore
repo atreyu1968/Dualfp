@@ -1,0 +1,17 @@
+# Configuración y datos privados
+config.php
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.sqlite
+*.sqlite3
+*.db
+/data/
+/private/
+/storage/
+/uploads/
+/backups/
+/logs/
+*.log
