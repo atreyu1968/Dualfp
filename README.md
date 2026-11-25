@@ -1,29 +1,102 @@
 # FP Dual Conecta A&G 3.6 · Ubuntu y Resend
 
-## Instalación desde GitHub (recomendada)
+## 1. Instalación desde cero: Ubuntu Server 24.04 LTS
+
+Estas instrucciones parten de un Ubuntu recién instalado, sin actualizar y sin Git, curl ni sudo. Se requiere una máquina virtual o contenedor LXC con systemd, conexión a Internet, DNS funcional, acceso a los repositorios de Ubuntu y al repositorio público de GitHub. Se recomienda 2 vCPU, 2 GB de RAM y 20–30 GB de disco. Use un servidor dedicado: la actualización detiene Apache, por lo que también afectaría a otros sitios alojados en él.
+
+### Paso 1. Entrar como root
+
+En la consola de Proxmox, inicie sesión como root. Si utiliza una cuenta Ubuntu con permisos sudo, ejecute `sudo -i`. Si sudo no existe, acceda como root por consola (o `su -` si conoce su contraseña). No ejecute los siguientes comandos sin privilegios de administración.
+
+### Paso 2. Actualizar Ubuntu e instalar herramientas básicas
 
 ```bash
-sudo apt update
-sudo apt install -y curl ca-certificates
-curl -fsSL https://raw.githubusercontent.com/atreyu1968/Dualfp/main/install.sh -o install-fpdual.sh
-# Revisar el instalador antes de ejecutarlo.
-sudo bash install-fpdual.sh
+apt-get update
+apt-get upgrade -y
+apt-get install -y ca-certificates curl git
 ```
 
-El instalador descarga la rama `main` del repositorio, comprueba que contiene todos los módulos y llama al instalador Ubuntu. Solicita el administrador inicial, dominio y configuración de HTTPS. Resend y los restantes parámetros funcionales se configuran desde el panel.
+Si existe `/var/run/reboot-required`, reinicie la máquina o el contenedor desde Proxmox y vuelva a entrar como root antes de continuar. No ejecute el instalador en un sistema con actualizaciones interrumpidas.
 
-Para cargar el directorio de prospección inicial en una instalación nueva, copie al servidor el JSON privado entregado por separado y ejecute:
+### Paso 3. Descargar y ejecutar el instalador
 
 ```bash
-sudo bash install-fpdual.sh --seed /ruta/fpdual_directorio_privado.json
+cd /root
+curl -fL --retry 3 https://raw.githubusercontent.com/atreyu1968/Dualfp/main/install.sh -o install-fpdual.sh
+bash -n install-fpdual.sh
+# Revise el contenido antes de ejecutarlo:
+cat install-fpdual.sh
+bash install-fpdual.sh
 ```
 
-La carga se valida y se almacena en `/var/lib/fpdual/seed.json` con permisos 0600, fuera del directorio público. El repositorio público contiene un `seed.json` vacío y dos empresas ficticias **exclusivamente en la prueba automatizada**, no en el directorio de producción. Si ya existen datos, no se sustituyen. Sin carga privada, se parte de cero empresas y de las 28 fichas vacías del grupo inicial. El tutor responsable se configura desde el panel. No incorpore el JSON privado al repositorio.
+El instalador descarga la rama main, comprueba los archivos e instala Apache, PHP y las dependencias. Solicitará un correo de administrador, contraseña de 14–72 bytes (se solicita dos veces), dominio sin https:// y si desea configurar Let's Encrypt. No solicita la API key de Resend; se configura más tarde desde el navegador. Si ya existe una instalación, use el actualizador del apartado 2, no repita el instalador inicial.
 
-Para actualizar, repita el mismo instalador durante una ventana de mantenimiento. Antes de actualizar, se crea una copia privada de configuración y datos en `/var/backups/fpdual/`. Supervise espacio libre y custodie las copias.
+Alternativa con Git, después del paso 2:
 
-Alternativamente, clone el repositorio y ejecute `sudo bash ubuntu/install.sh` (acepta también `--seed`).
+```bash
+cd /root
+git clone https://github.com/atreyu1968/Dualfp.git
+cd Dualfp
+bash install.sh
+```
 
+### Paso 4. Incorporar el directorio privado de empresas (opcional, solo antes de la primera instalación)
+
+Transfiera por un canal privado el archivo fpdual_directorio_privado.json a /root y proteja sus permisos. En lugar de ejecutar el último comando del paso 3, utilice:
+
+```bash
+chmod 600 /root/fpdual_directorio_privado.json
+bash /root/install-fpdual.sh --seed /root/fpdual_directorio_privado.json
+```
+
+No publique este JSON en GitHub. El repositorio público incluye un seed vacío. Si no aporta el fichero privado, la instalación nueva parte de cero empresas y 28 fichas vacías del grupo inicial. Si ya hay datos, use el importador CSV/TSV del panel y no sobrescriba data.json.
+
+### Paso 5. Configurar el acceso HTTPS
+
+El dominio debe apuntar al servidor mediante DNS. Si usa Let's Encrypt directamente, habilite el acceso externo a los puertos 80 y 443, y compruebe que no hay conflictos con otros servidores. Si utiliza Cloudflare Tunnel, siga la configuración del túnel y del origen HTTPS de confianza de su infraestructura: el instalador no crea el túnel. No desactive la exigencia HTTPS ni confíe en cabeceras arbitrarias de los visitantes.
+
+### Paso 6. Verificar los servicios
+
+```bash
+systemctl status apache2 --no-pager
+apache2ctl configtest
+php -v
+systemctl status fpdual-worker.timer --no-pager
+systemctl list-timers fpdual-worker.timer
+journalctl -u fpdual-worker.service -n 50 --no-pager
+```
+
+Abra la URL HTTPS de su dominio en el navegador. Inicie sesión con el administrador creado durante la instalación. Configure identidad institucional, URL pública, Resend (clave y remitente verificado), cursos, grupos, tutores, ayudas y privacidad. Realice un envío de prueba, revise la protección de datos y solo entonces habilite registro, campañas y recordatorios. La instalación por sí sola no envía campañas.
+
+## 2. Actualizar una instalación existente desde GitHub
+
+Descargue siempre el actualizador vigente, no reutilice una copia antigua. Desde una terminal interactiva como root:
+
+```bash
+cd /root
+apt-get update
+apt-get install -y ca-certificates curl git
+curl -fL --retry 3 https://raw.githubusercontent.com/atreyu1968/Dualfp/main/update.sh -o update-fpdual.sh
+bash -n update-fpdual.sh
+cat update-fpdual.sh
+bash update-fpdual.sh
+```
+
+Confirme la ventana de mantenimiento con s. El actualizador obtiene la revisión de main, comprueba los archivos y la sintaxis PHP, detiene temporalmente el temporizador, espera a que termine el trabajador y detiene Apache. Realiza una copia comprimida privada y verifica que puede leerse antes de sustituir los archivos. Conserva /etc/fpdual y /var/lib/fpdual, incluyendo credenciales, Resend, alumnado, empresas, expedientes, campañas y permisos. Conserva también la configuración del virtual host. No realiza una actualización general de Ubuntu. Si falla al copiar o validar los archivos, intenta restaurar el código y los archivos del trabajador desde la copia; si falla la recuperación, deja los servicios detenidos y avisa. Si falla al reiniciar un servicio, revise los logs: no se restaura automáticamente el estado de datos. El script está adaptado a la estructura 3.6 actual y deberá revisarse cuando se añadan dependencias, archivos o migraciones en futuras versiones.
+
+Las copias están en /var/backups/fpdual/ (acceso root). Incluyen datos personales y secretos: no compartir ni publicar. Controle el espacio libre y conserve copias externas seguras. El actualizador no elimina copias antiguas ni habilita servicios que estuvieran detenidos. Compruebe la instalación al terminar:
+
+```bash
+cat /usr/local/lib/fpdual/revision
+apache2ctl configtest
+systemctl status apache2 fpdual-worker.timer --no-pager
+journalctl -u fpdual-worker.service -n 50 --no-pager
+ls -lh /var/backups/fpdual/
+```
+
+Si aparece un error de GitHub, compruebe DNS y acceso a Internet antes de reintentar. Si falla Apache, consulte `journalctl -u apache2 -n 100 --no-pager`. Si no llega el correo, revise el dominio verificado, la clave y el remitente en Resend. No restaure un archivo de datos sobre una instalación en funcionamiento.
+
+Los apartados siguientes documentan el funcionamiento de la aplicación y su historial. Las referencias históricas a instalar de nuevo sobre una versión anterior quedan sustituidas por el procedimiento de actualización del apartado 2.
 
 ## Alcance funcional
 
