@@ -1,5 +1,5 @@
 Options -Indexes
 DirectoryIndex index.php
-<FilesMatch "^(config.*\.php|seed\.json|README\.md|lib\.php|auth\.php|inbox\.php|prospecting\.php|campaigns\.php|imports\.php|panels\.php|portal\.php|teacher\.php)$">
+<FilesMatch "^(config.*\.php|seed\.json|README\.md|lib\.php|auth\.php|inbox\.php|prospecting\.php|mail_composer\.php|campaigns\.php|imports\.php|panels\.php|portal\.php|teacher\.php)$">
  Require all denied
 </FilesMatch>
