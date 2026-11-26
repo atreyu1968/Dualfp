@@ -44,11 +44,11 @@ function location_links(array $e,bool $site=false):void {
 }
 
 function location_municipalities(string $text):array{
- $v=imp_norm($text);$out=[];foreach(['Arona'=>['arona','los cristianos','el fraile','palm mar','guaza','buzanada','valle de san lorenzo','cho','guargacho'],'Adeje'=>['adeje','costa adeje','torviscas','playa paraiso','la caleta','fanabe'],'Guía de Isora'=>['guia de isora','alcala','playa de san juan','fonsalia','tejina de isora','piedra hincada','himeche'],'Santiago del Teide'=>['santiago del teide','puerto de santiago','los gigantes','tamaimo','acantilado de los gigantes'],'Icod de los Vinos'=>['icod de los vinos'],'Buenavista del Norte'=>['buenavista del norte'],'San Juan de la Rambla'=>['san juan de la rambla']] as $m=>$terms)foreach($terms as $term)if(str_contains(' '.$v.' ',' '.$term.' ')){$out[]=$m;break;}return $out;
+ $v=imp_norm($text);$out=[];foreach(['Arona'=>['arona','los cristianos','el fraile','palm mar','guaza','buzanada','valle de san lorenzo','cho'],'Adeje'=>['adeje','costa adeje','torviscas','playa paraiso','la caleta','fanabe'],'Guía de Isora'=>['guia de isora','alcala','playa de san juan','fonsalia','tejina de isora','piedra hincada','himeche'],'Santiago del Teide'=>['santiago del teide','puerto de santiago','los gigantes','tamaimo','acantilado de los gigantes'],'Icod de los Vinos'=>['icod de los vinos'],'Buenavista del Norte'=>['buenavista del norte'],'San Juan de la Rambla'=>['san juan de la rambla']] as $m=>$terms)foreach($terms as $term)if(str_contains(' '.$v.' ',' '.$term.' ')){$out[]=$m;break;}return $out;
 }
 function location_places(array $e):array{
  $out=[];$base=trim(($e['zone']??'').' '.($e['address']??''));$municipalities=location_municipalities($base);
- foreach($e['sites']??[] as $site){$text=trim(($site['name']??'').' '.($site['detail']??''));$m=location_municipalities(($site['municipality']??'').' '.($site['detail']??''));if(!$m&&count($municipalities)===1)$m=$municipalities;$out[]=['text'=>$text,'municipalities'=>$m];}
+ foreach($e['sites']??[] as $site){$text=trim(($site['name']??'').' '.($site['detail']??''));$explicit=trim($site['municipality']??'');$m=$explicit?[$explicit]:location_municipalities($site['detail']??'');if(!$m&&count($municipalities)===1)$m=$municipalities;if(count($e['sites']??[])===1&&count($municipalities)===1)$text.=' '.$base;$out[]=['text'=>$text,'municipalities'=>$m];}
  if(!$out)$out[]=['text'=>trim(($e['name']??'').' '.$base),'municipalities'=>$municipalities];return $out;
 }
 function company_remove_blockers(array $d,string $cid,string $eid,bool $full):array{
