@@ -1,4 +1,4 @@
-# FP Dual Conecta A&G 3.10.2 · Ubuntu y Resend
+# FP Dual Conecta A&G 3.11 · Ubuntu y Resend
 
 **Revisión del 26/11/2026:** consulte [AUDITORIA.md](AUDITORIA.md) para conocer los resultados de las pruebas, las correcciones y las verificaciones pendientes en Ubuntu.
 
@@ -350,3 +350,21 @@ En Configuración → Identidad, publicación y ayudas, seleccione un curso publ
 Las solicitudes se consultan en Solicitudes de interés, en el curso correspondiente. En modo manual no se solicita ni se concede permiso de campañas: el administrador debe contactar realmente con la entidad, consignar evidencia de revisión (fecha, canal y persona o departamento) y confirmar antes de aprobar. La revisión manual se distingue de la verificación automática de la dirección. No crea cuentas ni confirma plazas. Las solicitudes sin revisar en modo manual caducan a los 30 días; las solicitudes de verificación automática conservan el plazo de 24 horas. Las ya revisadas permanecen pendientes de aprobación o descarte. Se mantienen los límites de frecuencia, protección CSRF, honeypot y las bajas existentes. La opción de consentimiento de campañas sigue disponible únicamente con doble confirmación automática por correo. Las autorizaciones reales obtenidas por otras vías se pueden registrar en la ficha mediante el procedimiento ya existente.
 
 Pruebas: `python3 tests/public_interest_http.py .` (34 comprobaciones HTTP locales superadas con datos ficticios; no se enviaron correos reales). Se comprobaron la publicación sin Resend, aviso obligatorio, revisión manual restringida, aprobación sin permisos automáticos y el flujo de doble confirmación con correo simulado. Falta comprobar el despliegue y Resend real. Actualice mediante el procedimiento habitual update.sh; no cambie las credenciales ni vuelva a importar empresas.
+
+
+## 3.11 — Directorio geográfico y gestión de fichas
+
+- Los CSV admiten las columnas opcionales Web y Centros de trabajo JSON. Cada centro se representa mediante un objeto con name, detail (dirección o localidad), email, phone y municipality opcionales. Ejemplo: [{"name":"Hotel A","detail":"Costa Adeje","municipality":"Adeje"}]. Los CSV anteriores siguen siendo compatibles.
+- Reimporte el directorio enriquecido en el mismo curso y grupo. Si la identidad coincide según las reglas existentes, la vista previa muestra Ampliar cuando se puede completar la web vacía o incorporar centros nuevos. No se sobrescriben webs o centros existentes, ni se alteran plazas, asignaciones, permisos, historial o documentos. Los casos ambiguos requieren revisión manual. Los datos se guardan en la ficha empresarial permanente; los cursos cerrados conservan su fotografía histórica.
+- En Empresas, Primer contacto y el panel docente se puede combinar la búsqueda general con Municipio del centro de trabajo y Centro de trabajo o lugar. Cuando se aplican los dos filtros geográficos, deben coincidir en la misma sede. Cada empresa puede aparecer en varios municipios por sus distintos centros. Si no consta un municipio explícito, se intenta deducir de la dirección y, subsidiariamente, de una localidad empresarial inequívoca; es una referencia orientativa editable, no una geocodificación certificada. Los municipios no determinados pueden filtrarse separadamente.
+- En la ficha de empresa y su portal se edita la web y el municipio de cada centro. Los tutores pueden consultar las ubicaciones de las empresas de sus grupos. Se generan enlaces externos de búsqueda y navegación de Google Maps a partir de nombre, dirección y municipio. No se envían datos a Google hasta pulsar el enlace; confirme el destino antes de desplazarse.
+- En la parte inferior de la ficha empresarial, solo el administrador puede elegir Desvincular de este grupo o Eliminar ficha de todos los grupos y cursos. Se exige confirmación explícita y contraseña actual. Se bloquean las operaciones que romperían referencias de alumnado, plazas, seguimientos, campañas, documentos, mensajes vinculados o expedientes cerrados. La eliminación global también protege cuentas, invitaciones, evidencias de interés y permisos de comunicaciones. Se conserva el registro de auditoría y no se eliminan copias de seguridad. Desvincular conserva la ficha general, que puede reutilizarse desde Vincular empresas; si hay actividad, conserve la ficha y gestione su estado. No existe borrado masivo.
+- Actualice con el procedimiento habitual update.sh. No es necesario reinstalar ni modificar la configuración de correo.
+
+Pruebas locales de las funciones PHP de importación, enriquecimiento y gestión del directorio: 55 comprobaciones satisfactorias. Se validaron también los cuatro CSV completos de prospección en una base ficticia: 70 ampliaciones de 71 fichas generales, 25 ampliaciones hoteleras, 17 nuevas notarías/administradores y 28 talleres, sin incidencias ni duplicados añadidos en ese escenario. Pendiente comprobar la interfaz HTTP completa, los filtros en el navegador y el despliegue real. Los CSV con contactos no se publican en el repositorio de código.
+
+```bash
+php tests/imports_test.php
+php tests/enrichment_test.php
+php tests/directory_management_test.php
+```
