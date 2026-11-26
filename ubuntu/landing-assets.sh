@@ -1,35 +1,17 @@
 #!/usr/bin/env bash
-# Fotografías de stock Pexels. Se descargan al servidor, no al navegador.
+# Comprueba los recursos incluidos en Git. No necesita acceso a bancos de imágenes.
 set -euo pipefail
-dest=/var/www/fpdual
-[[ $EUID -eq 0 && -f "$dest/index.php" ]] || { echo 'Ejecute como root en el contenedor FP Dual.' >&2; exit 1; }
-for cmd in curl php; do command -v "$cmd" >/dev/null || { echo "Falta $cmd" >&2; exit 1; }; done
-tmp=$(mktemp -d)
-trap 'rm -rf -- "$tmp"' EXIT
-valid(){
- [[ -s "$1" ]] && php -r '$i=@getimagesize($argv[1]);exit($i&&$i[2]===IMAGETYPE_JPEG&&$i[0]>=100&&$i[1]>=100&&$i[0]<=10000&&$i[1]<=10000?0:1);' "$1"
-}
-fetch(){
- local name="$1" id="$2" base url
- if valid "$dest/$name"; then echo "OK: $name ya instalada"; return 0; fi
- base="https://images.pexels.com/photos/$id/pexels-photo-$id.jpeg"
- for url in "$base?auto=compress&cs=tinysrgb&w=1260" "$base?auto=compress&cs=tinysrgb&w=900" "$base?auto=compress&dpr=1&h=750&w=1260" "$base"; do
-   rm -f -- "$tmp/$name"
-   if curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location --connect-timeout 5 --max-time 18 --max-filesize 10000000 --retry 1 --retry-delay 1 "$url" -o "$tmp/$name" && valid "$tmp/$name"; then
-     install -o root -g root -m 0644 "$tmp/$name" "$dest/$name"
-     echo "OK: fotografía instalada $name ($(stat -c %s "$dest/$name") bytes)"
-     return 0
-   fi
- done
- echo "ERROR: no se pudo instalar $name. Compruebe DNS y salida HTTPS del contenedor. Fuente: $base" >&2
- return 1
-}
-missing=0
-fetch landing-hero.jpg 5439394 || missing=1
-fetch landing-empleo.jpg 8424941 || missing=1
-if (( missing )); then
- echo 'FOTOGRAFÍAS INCOMPLETAS. La aplicación conserva el diseño de respaldo; vuelva a ejecutar este script cuando haya acceso a Pexels.' >&2
- exit 1
-fi
-echo 'FOTOGRAFÍAS INSTALADAS: 2/2.'
-ls -lh "$dest/landing-hero.jpg" "$dest/landing-empleo.jpg"
+source_dir=$(cd "$(dirname "$0")/.." && pwd)
+case "$1" in
+  --check-source) dir="$source_dir";;
+  --check-installed) dir=/var/www/fpdual;;
+  *) echo 'Uso: landing-assets.sh --check-source | --check-installed' >&2; exit 2;;
+esac
+count=0
+for file in landing-hero-311.jpg landing-formacion-311.jpg landing-empleo-311.jpg landing-ayudas-311.jpg; do
+  [[ -s "$dir/$file" && ! -L "$dir/$file" ]] || { echo "ERROR: falta $dir/$file" >&2; exit 1; }
+  php -r '$i=@getimagesize($argv[1]);if(!$i||$i[2]!==IMAGETYPE_JPEG||$i[0]<100||$i[1]<100){fwrite(STDERR,"JPEG inválido: ".$argv[1].PHP_EOL);exit(1);}printf("OK: %s (%dx%d)\n",basename($argv[1]),$i[0],$i[1]);' "$dir/$file"
+  if [[ "$dir" == /var/www/fpdual ]]; then cmp -s "$source_dir/$file" "$dir/$file" || { echo "ERROR: fotografía instalada distinta de la incluida en Git: $file" >&2; exit 1; }; fi
+  count=$((count+1))
+done
+echo "FOTOGRAFÍAS VERIFICADAS: $count/4"
