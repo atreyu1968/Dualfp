@@ -1,4 +1,4 @@
-# FP Dual Conecta A&G 3.11 · Ubuntu y Resend
+# FP Dual Conecta A&G 3.11.1 · Ubuntu y Resend
 
 **Revisión del 26/11/2026:** consulte [AUDITORIA.md](AUDITORIA.md) para conocer los resultados de las pruebas, las correcciones y las verificaciones pendientes en Ubuntu.
 
@@ -368,3 +368,14 @@ php tests/imports_test.php
 php tests/enrichment_test.php
 php tests/directory_management_test.php
 ```
+
+
+## 3.11.1 — Conservación de enlaces y ampliación de fichas anteriores
+
+Esta revisión conserva el directorio, los filtros geográficos para administración y docentes y el borrado con contraseña de 3.11. Además, el importador reconoce Mapa, Cómo llegar, Fuente principal y Observación de ubicación. El JSON de centros admite también web, map y route. Los enlaces explícitos se conservan, se muestran en las fichas y son editables; cuando faltan, se generan búsquedas orientativas a partir de la dirección y el municipio. No se realiza geocodificación ni se solicita la ubicación del usuario automáticamente.
+
+Para enriquecer empresas existentes, mantenga marcada la casilla **Completar web, dirección y centros de fichas existentes (sin sobrescribir ni modificar plazas)** y seleccione el mismo curso y grupo de origen. Se conserva la web anterior, las plazas, el historial y los identificadores de centros. Si coincide un centro por nombre inequívoco, se completan campos vacíos, sin incorporar rutas o municipios de una dirección discrepante. Las coincidencias dudosas requieren revisión. La vista previa muestra Ampliar cuando se añadirán datos.
+
+Los CSV se entregan por separado del repositorio. Validación con los módulos PHP de esta revisión (identificadores de blob comprobados frente a GitHub): reimportación de 71 fichas generales y 25 hoteleras, 17 nuevas notarías/administraciones de fincas y 28 talleres; cero incidencias y cero cambios de las colaboraciones anteriores en el escenario local. Las 12 pruebas de importación y 13 de enriquecimiento anteriores también pasan. Queda pendiente comprobar el funcionamiento HTTP completo en Ubuntu y la interfaz en el navegador de destino. No se han importado ni eliminado fichas del servidor real.
+
+Actualización: procedimiento habitual mediante update.sh.
