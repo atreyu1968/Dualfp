@@ -58,15 +58,15 @@ function imp_plan(array $d,string $cid,string $gid,array $rows): array {
   elseif(count($matches)===1){$id=$matches[0];$r['id']=$id;$old=$companies[$id];$a=imp_nif($old['nif']??'');$b=imp_nif($e['nif']);$sameNif=$a!==''&&$a===$b;$sameName=imp_norm($old['name'])===imp_norm($e['name']);$sameZone=imp_norm($old['zone'])===imp_norm($e['zone']);
    if(($a!==''&&$b!==''&&$a!==$b)||(!$sameNif&&!($sameName&&$sameZone))){$r['note']='Coincidencia de contacto o identidad no concluyente. Revisar manualmente.';}
    elseif(str_starts_with($id,'batch:')){$r['action']='skip';$r['note']='Duplicado dentro del lote.';}
-   elseif(isset($links[$id])){$r['action']='skip';$r['note']='Ya vinculada al curso; se conserva su grupo, datos y plazas.';}
-   else{$r['action']='link';$r['note']='Reutilizar ficha existente, sin modificar sus datos.';$links[$id]=imp_link($gid);}
+   elseif(group_link($links,$id,$gid)!==null){$r['action']='skip';$r['note']='Ya vinculada a este grupo; se conservan sus datos y plazas.';}
+   else{$r['action']='link';$r['note']='Reutilizar ficha existente, sin modificar sus datos.';$links[new_link_key($links,$id,$gid)]=imp_link($gid);}
   }else{$r['action']='create';$r['note']='Nueva empresa identificada, sin plazas confirmadas.';$id='batch:'.$row['row'];$r['id']=$id;$companies[$id]=$e;imp_index_add($idx,$id,$e);$links[$id]=imp_link($gid);}
   $out[]=$r;
  }return $out;
 }
 function imp_apply(array &$d,string $cid,string $gid,array $rows,array $plan): array {
  $by=[];foreach($rows as $row)$by[$row['row']]=$row;$count=['create'=>0,'link'=>0,'skip'=>0,'error'=>0];
- foreach($plan as $r){$count[$r['action']]++;if(!in_array($r['action'],['create','link'],true))continue;$id=$r['id'];if($r['action']==='create'){$id=uid();$d['companies'][$id]=$by[$r['row']]['profile'];}$d['links'][$cid][$id]=imp_link($gid);audit($d,'Importación: '.($r['action']==='create'?'alta de empresa':'vinculación de empresa'),$cid,$id);}
+ foreach($plan as $r){$count[$r['action']]++;if(!in_array($r['action'],['create','link'],true))continue;$id=$r['id'];if($r['action']==='create'){$id=uid();$d['companies'][$id]=$by[$r['row']]['profile'];}$d['links'][$cid][new_link_key($d['links'][$cid]??[],$id,$gid)]=imp_link($gid);audit($d,'Importación: '.($r['action']==='create'?'alta de empresa':'vinculación de empresa'),$cid,$id);}
  return $count;
 }
 function imp_handle(string $action,array &$d,string $cid): string {

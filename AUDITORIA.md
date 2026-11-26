@@ -37,3 +37,7 @@ No se ha instalado en el Ubuntu definitivo, ni se ha probado el systemd real, TL
 Persiste la limitación conocida de una colaboración por empresa y curso, con un único grupo; todavía no permite vincular la misma empresa a varios grupos del mismo curso. La importación directa XLSX, lectura automática de respuestas, generación de anexos oficiales y firma electrónica no están implementadas. Los datos empresariales iniciales y la cuantía de ayudas son configurables y requieren comprobación antes de publicar o enviar.
 
 Antes de habilitar datos reales: instalación en Ubuntu 24.04, HTTPS, verificación de servicios, prueba de Resend con un destinatario autorizado, prueba de backup/restauración y revisión de privacidad del centro. Mantener campañas desactivadas durante esta comprobación.
+
+## Revisión 3.7 — Colaboraciones múltiples
+
+Se ha eliminado la limitación de un grupo por empresa y curso mediante referencias estables, sin cambiar las colaboraciones históricas. 124 comprobaciones HTTP (cero errores PHP), 21 de campañas/importación y 17 pruebas de multigrupo superadas localmente con datos ficticios y correo simulado. Se verificaron las huellas Git de los archivos PHP modificados frente a la rama de desarrollo. Se mantiene la aceptación pendiente en Ubuntu y Resend real. Capacidad global de empresa y solapamientos horarios entre grupos requieren revisión humana. La limitación multigrupo descrita en la auditoría anterior queda superada.
