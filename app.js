@@ -1,7 +1,21 @@
 'use strict';
 const $=id=>document.getElementById(id);const amount=$('amount');if(amount){const calc=()=>{const hours=Math.min(2000,Math.max(0,Number($('hours').value)||0));const n=Math.min(100,Math.max(0,Math.floor(Number($('num').value)||0)));amount.textContent=(hours*n*Number(amount.dataset.rate)).toLocaleString('es-ES',{style:'currency',currency:'EUR'});};$('hours').addEventListener('input',calc);$('num').addEventListener('input',calc);calc();}
 const cs=$('course-switch');if(cs)cs.addEventListener('change',()=>{location.href='index.php?'+new URLSearchParams({v:cs.dataset.view,c:cs.value});});
-const search=$('search'),status=$('status-filter');if(search&&status){const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const filter=()=>{for(const tr of document.querySelectorAll('#directory tbody tr'))tr.hidden=!(norm(tr.textContent).includes(norm(search.value))&&(!status.value||tr.dataset.status===status.value));};search.addEventListener('input',filter);status.addEventListener('change',filter);}
+const search=$('search'),status=$('status-filter');
+const municipality=$('municipality-filter'),siteSearch=$('site-search');
+function directoryNorm(s){return String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function directorySiteMatch(row){
+ if(!municipality&&!siteSearch)return true;
+ const m=municipality?.value??'',q=directoryNorm(siteSearch?.value??'');if(!m&&!q)return true;
+ let loc=[];try{loc=JSON.parse(row.dataset.locations||'[]');}catch{return false;}
+ return loc.some(s=>(!m||(m==='__unknown'?!s.municipality:s.municipality===m))&&(!q||directoryNorm([s.name,s.detail,s.municipality].join(' ')).includes(q)));
+}
+if(search||status||municipality||siteSearch){
+ const rows=[...document.querySelectorAll('#directory tbody tr, #teacher-directory > details[data-locations]')];
+ const filter=()=>{let n=0;for(const row of rows){row.hidden=!(directoryNorm(row.textContent).includes(directoryNorm(search?.value??''))&&(!status?.value||row.dataset.status===status.value)&&directorySiteMatch(row));if(!row.hidden)n++;}
+ const count=$('directory-count');if(count)count.textContent=n+' de '+rows.length+' colaboraciones';};
+ for(const el of [search,status,municipality,siteSearch])if(el)el.addEventListener(el.tagName==='SELECT'?'change':'input',filter);filter();
+}
 const menu=document.getElementById('menu-toggle');if(menu){menu.addEventListener('click',()=>document.body.classList.toggle('nav-open'));document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('nav-open')});document.querySelector('.shell')?.addEventListener('click',e=>{if(e.target!==menu&&document.body.classList.contains('nav-open'))document.body.classList.remove('nav-open')});}
 
 /* Preparación local de correo: no realiza envíos. */
