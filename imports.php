@@ -33,9 +33,9 @@ function imp_profile(array $raw): array {
  $sites=[];$json=trim((string)($raw['sites_json']??''));if($json!==''){
   if(strlen($json)>50000)throw new InvalidArgumentException('Centros: máximo 50 KB.');
   $list=json_decode($json,true);if(!str_starts_with($json,'[')||!is_array($list)||!array_is_list($list)||count($list)>100)throw new InvalidArgumentException('Centros: se requiere una lista JSON de hasta 100 centros.');
-  foreach($list as $site){if(!is_array($site))throw new InvalidArgumentException('Centro inválido.');$v=[];foreach(['name'=>500,'detail'=>1000,'email'=>254,'phone'=>100] as $k=>$max){$x=$site[$k]??'';if(!is_string($x)||strlen($x)>$max||preg_match('/[\x00-\x1F]/',$x))throw new InvalidArgumentException('Dato de centro inválido: '.$k);$v[$k]=trim($x);}
+  foreach($list as $site){if(!is_array($site))throw new InvalidArgumentException('Centro inválido.');$v=[];foreach(['name'=>500,'detail'=>1000,'email'=>254,'phone'=>100,'municipality'=>100] as $k=>$max){$x=$site[$k]??'';if(!is_string($x)||strlen($x)>$max||preg_match('/[\x00-\x1F]/',$x))throw new InvalidArgumentException('Dato de centro inválido: '.$k);$v[$k]=trim($x);}
    if(!$v['name']||!$v['detail']||($v['email']&&!filter_var($v['email'],FILTER_VALIDATE_EMAIL)))throw new InvalidArgumentException('Cada centro requiere nombre y dirección o localidad; correo válido si se indica.');
-   $key=imp_norm($v['name']).'|'.imp_norm($v['detail']);$sites[$key]=$v;
+   if($v['municipality']&&!in_array($v['municipality'],location_municipalities(),true))throw new InvalidArgumentException('Municipio de centro no reconocido.');$v['municipality']=site_municipality($v,$e['zone']);$key=imp_norm($v['name']).'|'.imp_norm($v['detail']);$sites[$key]=$v;
   }
  }
  $e['sites']=[];foreach($sites as $key=>$v)$e['sites'][substr(hash('sha256',$e['name'].'|'.$key),0,24)]=$v;
@@ -102,7 +102,7 @@ function imp_handle(string $action,array &$d,string $cid): string {
  fail('Acción de importación desconocida');
 }
 function imp_ui(array $d,string $cid,array $gs,bool $ed): void {
- echo '<section class="card"><h2>Importar empresas</h2><p>Importe hasta 2.000 registros por lote (2 MB). Excel, LibreOffice y Google Sheets: guarde como CSV UTF-8 o copie las celdas con cabecera. Se admiten punto y coma, coma o tabulación. Solo Empresa es obligatoria.</p><p>Los duplicados se comprueban en todos los cursos. Las coincidencias ambiguas se omiten para revisión. Se mantienen las fichas existentes, plazas, grupos y permisos de envío. Si la identidad coincide, se completa la web vacía y se añaden centros de trabajo nuevos, sin sustituir los existentes. La columna Web admite HTTP/HTTPS; Centros de trabajo JSON contiene objetos con name y detail (dirección o localidad), email y phone opcionales. Las nuevas empresas quedan identificadas con 0 plazas confirmadas.</p>';
+ echo '<section class="card"><h2>Importar empresas</h2><p>Importe hasta 2.000 registros por lote (2 MB). Excel, LibreOffice y Google Sheets: guarde como CSV UTF-8 o copie las celdas con cabecera. Se admiten punto y coma, coma o tabulación. Solo Empresa es obligatoria.</p><p>Los duplicados se comprueban en todos los cursos. Las coincidencias ambiguas se omiten para revisión. Se mantienen las fichas existentes, plazas, grupos y permisos de envío. Si la identidad coincide, se completa la web vacía y se añaden centros de trabajo nuevos, sin sustituir los existentes. La columna Web admite HTTP/HTTPS; Centros de trabajo JSON contiene objetos con name y detail (dirección o localidad), email, phone y municipality opcionales. Las nuevas empresas quedan identificadas con 0 plazas confirmadas.</p>';
  a('import_template','Descargar plantilla CSV',$cid,'','button secondary');
  if(!$ed||!$gs){echo '<p>Seleccione un curso abierto con un grupo configurado.</p></section>';return;}
  form_start('imp_preview',['c'=>$cid],true);select_field('group','Grupo de destino',$gs);echo '<label>Archivo CSV o TSV<input type="file" name="csvfile" accept=".csv,.tsv,.txt,text/csv,text/plain"></label>';area('paste','O pegar una tabla con cabecera');end_form('Validar y ver vista previa');echo '</section>';
