@@ -76,7 +76,10 @@ function company_web_link(array $e):void{
 }
 function site_map_links(string $name,string $detail,string $zone=''):void{
  if(trim($detail)===''&&trim($zone)==='')return;
+ $approx=str_starts_with($detail,'Referencia de ubicación (confirmar dirección exacta):');
+ if($approx)$detail=trim(substr($detail,strlen('Referencia de ubicación (confirmar dirección exacta):')));
  $q=rawurlencode(implode(', ',array_filter([$name,$detail,$zone,'Tenerife, España'])));
+ if($approx)echo '<p class="muted">Ubicación orientativa: confirme la dirección antes de desplazarse.</p>';
  echo '<div class="actions location-links"><a class="button secondary" href="https://www.google.com/maps/search/?api=1&amp;query='.$q.'" target="_blank" rel="noopener noreferrer">Ver mapa ↗</a><a class="button secondary" href="https://www.google.com/maps/dir/?api=1&amp;destination='.$q.'" target="_blank" rel="noopener noreferrer">Cómo llegar ↗</a></div>';
 }
 function company_location_fallback(array $e):void{
@@ -87,6 +90,6 @@ function company_location_fallback(array $e):void{
 }
 function company_locations(array $e):void{
  company_web_link($e);
- if(!empty($e['sites'])){foreach($e['sites'] as $s){echo '<p><strong>'.h($s['name']).'</strong><small>'.h($s['detail']).'</small></p>';site_map_links($s['name'],$s['detail']);}}
+ if(!empty($e['sites'])){foreach($e['sites'] as $s){echo '<p><strong>'.h($s['name']).'</strong><small>'.h($s['detail']).'</small></p>';site_map_links($s['name'],$s['detail'],$e['zone']??'');}}
  else company_location_fallback($e);
 }
