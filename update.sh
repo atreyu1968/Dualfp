@@ -51,11 +51,12 @@ trap 'exit 143' TERM
 git clone --depth 1 --branch main https://github.com/atreyu1968/Dualfp.git "$WORK/source"
 cd "$WORK/source"
 REV=$(git rev-parse HEAD)
-FILES=(index.php lib.php auth.php inbox.php prospecting.php mail_composer.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css favicon.svg seed.json .htaccess)
+FILES=(index.php lib.php auth.php inbox.php prospecting.php mail_composer.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css favicon.svg landing-hero-311.jpg landing-formacion-311.jpg landing-empleo-311.jpg landing-ayudas-311.jpg seed.json .htaccess)
 for f in "${FILES[@]}" ubuntu/worker.php ubuntu/fpdual-worker.service ubuntu/fpdual-worker.timer; do
   [[ -s "$f" && ! -L "$f" ]] || { echo "Archivo ausente o no valido: $f" >&2; exit 1; }
 done
 for f in *.php ubuntu/*.php; do php -l "$f" >/dev/null; done
+bash ubuntu/landing-assets.sh --check-source
 apache2ctl configtest
 for f in /usr/local/lib/fpdual/worker.php /etc/systemd/system/fpdual-worker.service /etc/systemd/system/fpdual-worker.timer; do
   [[ -f "$f" ]] || { echo "Instalacion previa incompleta: $f" >&2; exit 1; }
@@ -94,6 +95,7 @@ for f in "${FILES[@]}"; do install -o root -g root -m 0644 "$f" /var/www/fpdual/
 install -o root -g root -m 0644 ubuntu/worker.php /usr/local/lib/fpdual/worker.php
 install -o root -g root -m 0644 ubuntu/fpdual-worker.service ubuntu/fpdual-worker.timer /etc/systemd/system/
 for f in /var/www/fpdual/*.php /usr/local/lib/fpdual/worker.php; do php -l "$f" >/dev/null; done
+bash ubuntu/landing-assets.sh --check-installed
 apache2ctl configtest
 systemctl daemon-reload
 # No se modifican datos ni configuracion privada. Se restaura el estado anterior de servicios.
@@ -102,6 +104,5 @@ if (( TIMER )); then systemctl start fpdual-worker.timer; fi
 printf '%s\n' "$REV" >/usr/local/lib/fpdual/revision
 MUTATING=0
 MAINT=0
-if ! bash ubuntu/landing-assets.sh; then echo 'Aviso: fotografías opcionales no instaladas.'; fi
 echo "Actualizacion completada: $REV"
 echo 'Compruebe el acceso HTTPS y el temporizador. No se han cambiado credenciales ni datos.'
