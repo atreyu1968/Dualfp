@@ -32,7 +32,7 @@ function imp_profile(array $raw): array {
  if($e['website']!==''&&!company_web_valid($e['website']))throw new InvalidArgumentException('Web: indique una URL HTTP o HTTPS válida.');
  $sites=[];$json=trim((string)($raw['sites_json']??''));if($json!==''){
   if(strlen($json)>50000)throw new InvalidArgumentException('Centros: máximo 50 KB.');
-  $list=json_decode($json,true);if(!is_array($list)||!array_is_list($list)||count($list)>100)throw new InvalidArgumentException('Centros: se requiere una lista JSON de hasta 100 centros.');
+  $list=json_decode($json,true);if(!str_starts_with($json,'[')||!is_array($list)||!array_is_list($list)||count($list)>100)throw new InvalidArgumentException('Centros: se requiere una lista JSON de hasta 100 centros.');
   foreach($list as $site){if(!is_array($site))throw new InvalidArgumentException('Centro inválido.');$v=[];foreach(['name'=>500,'detail'=>1000,'email'=>254,'phone'=>100] as $k=>$max){$x=$site[$k]??'';if(!is_string($x)||strlen($x)>$max||preg_match('/[\x00-\x1F]/',$x))throw new InvalidArgumentException('Dato de centro inválido: '.$k);$v[$k]=trim($x);}
    if(!$v['name']||!$v['detail']||($v['email']&&!filter_var($v['email'],FILTER_VALIDATE_EMAIL)))throw new InvalidArgumentException('Cada centro requiere nombre y dirección o localidad; correo válido si se indica.');
    $key=imp_norm($v['name']).'|'.imp_norm($v['detail']);$sites[$key]=$v;
