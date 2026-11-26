@@ -60,13 +60,13 @@ function imp_parse(string $data): array {
  fclose($f);if(!$rows)throw new InvalidArgumentException('No hay registros para importar.');return $rows;
 }
 function imp_link(string $group): array {return ['status'=>'Identificada','requested'=>0,'confirmed'=>0,'group'=>$group,'notes'=>'','next'=>'','history'=>[],'snapshot'=>null];}
-function imp_enrich(array $old,array $new):array{
+function imp_enrich(array $old,array $new,string $id):array{
  $delta=[];foreach(['web','map','route','address'] as $k)if(empty($old[$k])&&!empty($new[$k]))$delta[$k]=$new[$k];
  $existing=$old['sites']??[];$names=[];foreach($existing as $id=>$site)$names[imp_norm($site['name']??'')][]=$id;
  $changes=[];$add=[];foreach($new['sites']??[] as $site){$name=imp_norm($site['name']);$matches=$names[$name]??[];
   if(count($matches)>1)continue;
-  if(!$matches){$add[]=$site;continue;}
-  $id=$matches[0];$prev=$existing[$id];foreach(['detail','email','phone','web','map','route'] as $k)if(empty($prev[$k])&&!empty($site[$k]))$changes[$id][$k]=$site[$k];
+  if(!$matches){$key='site-'.hash('sha256',$id.'|'.$name);if(!isset($existing[$key]))$add[$key]=$site;continue;}
+  $sid=$matches[0];$prev=$existing[$sid];foreach(['detail','email','phone','web','map','route'] as $k)if(empty($prev[$k])&&!empty($site[$k]))$changes[$sid][$k]=$site[$k];
  }
  return ['fields'=>$delta,'add'=>$add,'changes'=>$changes];
 }
@@ -74,7 +74,7 @@ function imp_has_enrich(array $x):bool{return (bool)($x['fields']||$x['add']||$x
 function imp_enrich_apply(array &$old,array $delta):void{
  foreach($delta['fields'] as $k=>$v)$old[$k]=$v;
  foreach($delta['changes'] as $id=>$fields)foreach($fields as $k=>$v)$old['sites'][$id][$k]=$v;
- foreach($delta['add'] as $site)$old['sites'][uid()]=$site;
+ foreach($delta['add'] as $sid=>$site)$old['sites'][$sid]=$site;
 }
 function imp_plan(array $d,string $cid,string $gid,array $rows,bool $enrich=false): array {
  $idx=imp_index($d['companies']);$companies=$d['companies'];$links=$d['links'][$cid]??[];$out=[];
@@ -84,8 +84,8 @@ function imp_plan(array $d,string $cid,string $gid,array $rows,bool $enrich=fals
   elseif(count($matches)===1){$id=$matches[0];$r['id']=$id;$old=$companies[$id];$a=imp_nif($old['nif']??'');$b=imp_nif($e['nif']);$sameNif=$a!==''&&$a===$b;$sameName=imp_norm($old['name'])===imp_norm($e['name']);$sameZone=imp_norm($old['zone'])===imp_norm($e['zone']);
    if(($a!==''&&$b!==''&&$a!==$b)||(!$sameNif&&!($sameName&&$sameZone))){$r['note']='Coincidencia de contacto o identidad no concluyente. Revisar manualmente.';}
    elseif(str_starts_with($id,'batch:')){$r['action']='skip';$r['note']='Duplicado dentro del lote.';}
-   elseif(group_link($links,$id,$gid)!==null){$delta=$enrich?imp_enrich($old,$e):[];if($enrich&&imp_has_enrich($delta)){$r['action']='update';$r['delta']=$delta;$r['note']='Completar '.count($delta['fields']).' campos y añadir '.count($delta['add']).' centros; conservar valores existentes.';imp_enrich_apply($companies[$id],$delta);}else{$r['action']='skip';$r['note']='Ya vinculada a este grupo; se conservan sus datos y plazas.';}}
-   else{$r['action']='link';$r['note']='Reutilizar ficha existente, sin modificar sus datos.';if($enrich&&imp_has_enrich($delta=imp_enrich($old,$e))){$r['delta']=$delta;$r['note']='Vincular y completar web, dirección y centros sin sobrescribir.';imp_enrich_apply($companies[$id],$delta);}$links[new_link_key($links,$id,$gid)]=imp_link($gid);}
+   elseif(group_link($links,$id,$gid)!==null){$delta=$enrich?imp_enrich($old,$e,$id):[];if($enrich&&imp_has_enrich($delta)){$r['action']='update';$r['delta']=$delta;$r['note']='Completar '.count($delta['fields']).' campos y añadir '.count($delta['add']).' centros; conservar valores existentes.';imp_enrich_apply($companies[$id],$delta);}else{$r['action']='skip';$r['note']='Ya vinculada a este grupo; se conservan sus datos y plazas.';}}
+   else{$r['action']='link';$r['note']='Reutilizar ficha existente, sin modificar sus datos.';if($enrich&&imp_has_enrich($delta=imp_enrich($old,$e,$id))){$r['delta']=$delta;$r['note']='Vincular y completar web, dirección y centros sin sobrescribir.';imp_enrich_apply($companies[$id],$delta);}$links[new_link_key($links,$id,$gid)]=imp_link($gid);}
   }else{$r['action']='create';$r['note']='Nueva empresa identificada, sin plazas confirmadas.';$id='batch:'.$row['row'];$r['id']=$id;$companies[$id]=$e;imp_index_add($idx,$id,$e);$links[$id]=imp_link($gid);}
   $out[]=$r;
  }return $out;
