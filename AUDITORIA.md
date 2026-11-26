@@ -45,3 +45,7 @@ Se ha eliminado la limitación de un grupo por empresa y curso mediante referenc
 ## Revisión 3.8 — Buzón empresarial
 
 Pruebas locales: 124 HTTP funcionales anteriores, 38 regresiones de campañas/importación/multigrupo, 24 pruebas del buzón y 25 HTTP del webhook, en total 211 comprobaciones. Sin errores PHP en los escenarios HTTP. Se ha comprobado firma HMAC, caducidad, destinatario, deduplicación, acceso privado, retención de seguimiento, asociación manual, respuesta simulada y borrado. Se requiere prueba de recepción y entrega real en Resend, configuración de dominio y despliegue Ubuntu. No se descargan adjuntos ni se envían respuestas automáticas.
+
+## Revisión 3.9 — Prospección y autorización
+
+162 comprobaciones HTTP funcionales; 38 regresiones de campañas, importación y multigrupo; 24 pruebas del buzón; 25 HTTP del webhook; 6 SMTP/MIME: 255 en total. Pruebas con datos ficticios y servidor SMTP local simulado, sin envíos externos. La manifestación de interés requiere verificación, la autorización de campañas es opcional, las bajas se conservan y ninguna solicitud confirma plazas. Se requiere comprobación con el proveedor SMTP real (LOGIN con TLS; OAuth2 no implementado), Resend y servidor de destino. Las credenciales se almacenan en directorio privado, sin cifrado adicional. Favicon SVG incorporado a instalación y actualización.
