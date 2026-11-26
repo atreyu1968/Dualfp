@@ -45,6 +45,7 @@ function pc_approve(array &$d):string{
  else{if(imp_matches(imp_index($d['companies']),$e))fail('Posible empresa duplicada. Revise el directorio y vincule la ficha existente.');$eid=uid();$d['companies'][$eid]=$e;}
  $lid=group_link($d['links'][$cid]??[],$eid,$r['group']);
  if($lid===null){$lid=new_link_key($d['links'][$cid]??[],$eid,$r['group']);$l=imp_link($r['group']);$l['status']='Interesada';$l['requested']=$r['requested'];$d['links'][$cid][$lid]=$l;}
+ if(camp_status_ok($d['links'][$cid][$lid]))$d['links'][$cid][$lid]['status']='Interesada';
  $d['links'][$cid][$lid]['history'][]=['at'=>date(DATE_ATOM),'type'=>'Interés web verificado','note'=>'Solicitud revisada; plazas orientativas: '.$r['requested'].'. '.$r['notes']];
  $d['interest_evidence'][$id]=['email'=>$r['email'],'company'=>$eid,'course'=>$cid,'group'=>$r['group'],'created'=>$r['created'],'verified_at'=>$r['verified_at'],'approved_at'=>date(DATE_ATOM),'optin'=>$r['optin'],'text'=>$r['consent_text'],'privacy'=>$r['privacy_text'],'center'=>$r['center']];
  if($r['optin']&&!isset($d['campaign_optouts'][$r['email']]))$d['campaign_permissions'][$eid][$r['email']]=['allowed'=>true,'evidence'=>'Formulario público verificado '.$r['verified_at'].'. '.$r['consent_text'].' Referencia '.$id,'at'=>date(DATE_ATOM),'source'=>'interest','reference'=>$id];
