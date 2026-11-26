@@ -1,4 +1,4 @@
-# FP Dual Conecta A&G 3.9 · Ubuntu y Resend
+# FP Dual Conecta A&G 3.10 · Ubuntu y Resend
 
 **Revisión del 26/11/2026:** consulte [AUDITORIA.md](AUDITORIA.md) para conocer los resultados de las pruebas, las correcciones y las verificaciones pendientes en Ubuntu.
 
@@ -311,3 +311,26 @@ php tests/inbox_test.php
 ```
 
 Pruebas locales con datos ficticios: 162 comprobaciones HTTP funcionales, 38 de campañas/importación/multigrupo, 24 del buzón, 25 HTTP de recepción y 6 de SMTP/MIME (255 en total, sin contar repeticiones del nuevo guion específico). El SMTP se ensayó contra un servidor local simulado con STARTTLS y TLS directo; también se comprobó rechazo de certificado no confiable e inyección de cabeceras. No se han enviado correos a empresas reales. Pendiente comprobar Resend y el proveedor SMTP institucional real, así como el despliegue en el servidor definitivo. Revise las normas institucionales y de privacidad con el centro antes de activar envíos.
+
+
+## 3.10 — Preparador de correo institucional y nueva portada
+
+Esta versión sustituye el envío SMTP institucional por la preparación de mensajes para enviar desde el gestor de correo autorizado por el centro. Los apartados históricos que describen SMTP directo corresponden a la versión 3.9 y ya no son aplicables. Resend continúa siendo el canal de verificación, registro, campañas autorizadas, recordatorios y buzón.
+
+1. Abra **Preparar correo** en el panel de administración. Seleccione una de las tres plantillas (empresa privada, organismo público o asociación), filtre por localidad, sector, grupo y situación, y seleccione las entidades deseadas (hasta 100 colaboraciones por preparación).
+2. Pulse **Preparar destinatarios y plantilla**. Se deduplican empresas y direcciones, se utiliza la primera dirección disponible y se excluyen bajas y colaboraciones rechazadas. Revise las direcciones, el asunto y el texto. Puede copiarlos o descargar los destinatarios como TXT y CSV.
+3. Envíe desde su gestor institucional, conforme a las instrucciones del centro y del proveedor. Priorice contactos individuales. Si se autoriza el envío colectivo, use CCO para no revelar las direcciones. FP Dual no efectúa el envío ni verifica la entrega. La preparación permanece disponible durante 30 minutos en la sesión.
+4. Regrese al preparador y marque exclusivamente los mensajes efectivamente enviados. Confirme el asunto y texto registrados, y opcionalmente indique la fecha del siguiente contacto. Se añade historial a las colaboraciones seleccionadas; las identificadas pasan a Contactada. No se confirman plazas ni se conceden permisos de campañas. Si caduca la preparación, utilice el registro de contacto de la ficha.
+5. En Configuración puede retirar, mediante contraseña administrativa, las credenciales SMTP antiguas del almacenamiento activo. Los respaldos anteriores pueden conservarlas. Las rutas SMTP antiguas quedan deshabilitadas. No se requiere SMTP ni configurar una nueva clave.
+
+### Portada pública
+
+Nuevo diseño adaptable en azul marino y verde, oferta formativa real del curso, calculadora de ayudas orientativas, llamadas a la colaboración, acceso privado y formulario de interés conservados. Conecta FP Canarias se presenta exclusivamente como portal de empleo para personas tituladas en FP y publicación de ofertas de trabajo, separado de las prácticas y de la FEOE. Introduzca su URL HTTPS real en Configuración; no se ha inventado una dirección. La sección se muestra cuando existe una URL configurada.
+
+El instalador y el actualizador intentan descargar dos fotografías de stock de Pexels a la carpeta web local. Son opcionales: si falla la descarga, el diseño utiliza fondos de respaldo y el proceso de actualización continúa. No se solicitan imágenes a terceros desde el navegador. Fuentes: [Tima Miroshnichenko, colaboración en oficina](https://www.pexels.com/photo/people-working-together-in-an-office-5439394/) y [Pavel Danilyuk, profesional con portátil](https://www.pexels.com/photo/woman-in-business-attire-carrying-a-laptop-8424941/), [licencia Pexels](https://www.pexels.com/license/). Fotografías ilustrativas, no representan al alumnado ni al personal del centro. La descarga real deberá verificarse en el servidor Ubuntu de destino.
+
+### Pruebas 3.10
+
+Se han ejecutado 35 comprobaciones HTTP específicas del preparador y portada, 154 funcionales generales adaptadas a la retirada de SMTP, 38 de campañas/importación/multigrupo, 24 del buzón y 25 HTTP del webhook, en un entorno local con datos ficticios (276 comprobaciones). No se enviaron correos reales. Prueba específica reproducible con Python 3, requests y beautifulsoup4: `python3 tests/mail_composer_http.py .`. Las pruebas históricas de SMTP directo de 3.9 ya no corresponden a la funcionalidad vigente. Pendiente comprobar la descarga de fotografías y el resultado en el navegador y servidor reales.
+
+La actualización se realiza con el procedimiento habitual de update.sh. No es necesario reinstalar ni importar de nuevo las empresas.
