@@ -102,5 +102,6 @@ if (( TIMER )); then systemctl start fpdual-worker.timer; fi
 printf '%s\n' "$REV" >/usr/local/lib/fpdual/revision
 MUTATING=0
 MAINT=0
+if ! bash ubuntu/landing-assets.sh; then echo 'Aviso: fotografías opcionales no instaladas.'; fi
 echo "Actualizacion completada: $REV"
 echo 'Compruebe el acceso HTTPS y el temporizador. No se han cambiado credenciales ni datos.'
