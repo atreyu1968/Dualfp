@@ -83,7 +83,8 @@ function pc_smtp_message(array $s,string $to,string $subject,string $body):strin
  foreach([$s['from'],$to] as $mail)if(!filter_var($mail,FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$mail))throw new InvalidArgumentException('Correo inválido');
  if($s['reply']&&(!filter_var($s['reply'],FILTER_VALIDATE_EMAIL)||preg_match('/[\r\n]/',$s['reply'])))throw new InvalidArgumentException('Reply-To inválido');
  if(!$subject||strlen($subject)>180||preg_match('/[\r\n\x00]/',$subject)||strlen($body)>12000)throw new InvalidArgumentException('Mensaje inválido');
- $headers=['Date: '.date(DATE_RFC2822),'From: '.$s['from'],'To: '.$to,'Subject: =?UTF-8?B?'.base64_encode($subject).'?=','MIME-Version: 1.0','Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64'];
+ $encoded=iconv_mime_encode('Subject',$subject,['scheme'=>'B','input-charset'=>'UTF-8','output-charset'=>'UTF-8','line-length'=>76,'line-break-chars'=>"\r\n"]);if($encoded===false)throw new InvalidArgumentException('Asunto inválido');
+ $headers=['Date: '.date(DATE_RFC2822),'From: '.$s['from'],'To: '.$to,$encoded,'MIME-Version: 1.0','Content-Type: text/plain; charset=UTF-8','Content-Transfer-Encoding: base64'];
  if($s['reply'])$headers[]='Reply-To: '.$s['reply'];
  return implode("\r\n",$headers)."\r\n\r\n".chunk_split(base64_encode($body),76,"\r\n");
 }
@@ -120,7 +121,7 @@ function pc_contact_ui(array $d,array $cfg,string $cid,string $eid):void{
  $e=company($d,$eid);$mails=camp_emails($e);$s=pc_smtp_config($d);$base=rtrim($cfg['public_url']??'','/');
  echo '<h3>Primer contacto institucional individual</h3><p>Revise la finalidad y el destinatario. No es una campaña ni concede autorización. Use su correo institucional con las instrucciones del centro. No contacte direcciones dadas de baja.</p>';
  foreach($mails as $mail){if(isset($d['campaign_optouts'][$mail]))continue;
- $subject='Propuesta de colaboración educativa FEOE · '.$d['settings']['center'];$body=strtr(camp_default(),camp_tokens($d,$cfg+['public_url'=>$base],$cid,$eid,$mail));$body.="\n\nSi prefiere no recibir nuevas propuestas, comuníquenoslo.";
+ $subject='Propuesta de colaboración educativa FEOE';$body=strtr(camp_default(),camp_tokens($d,$cfg+['public_url'=>$base],$cid,$eid,$mail));$body.="\n\nSi prefiere no recibir nuevas propuestas, comuníquenoslo.";
  echo '<details><summary>'.h($mail).'</summary>';echo '<p><a class="button secondary" href="'.h('mailto:'.$mail.'?subject='.rawurlencode($subject).'&body='.rawurlencode($body)).'">Abrir correo institucional</a></p>';
  if(pc_smtp_ready($s)){form_start('pc_contact',['c'=>$cid,'e'=>$eid,'email'=>$mail,'revision'=>(string)count($d['links'][$cid][$eid]['history'])]);input('subject','Asunto',$subject);area('body','Texto a revisar',$body);echo '<label class="check"><input name="confirm" type="checkbox" value="yes" required> He revisado la finalidad, el destinatario y las normas del centro y del proveedor. Autorizo este único envío.</label>';end_form('Enviar correo individual por SMTP');}echo '</details>';
  }
