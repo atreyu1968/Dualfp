@@ -1,7 +1,15 @@
 'use strict';
 const $=id=>document.getElementById(id);const amount=$('amount');if(amount){const calc=()=>{const hours=Math.min(2000,Math.max(0,Number($('hours').value)||0));const n=Math.min(100,Math.max(0,Math.floor(Number($('num').value)||0)));amount.textContent=(hours*n*Number(amount.dataset.rate)).toLocaleString('es-ES',{style:'currency',currency:'EUR'});};$('hours').addEventListener('input',calc);$('num').addEventListener('input',calc);calc();}
 const cs=$('course-switch');if(cs)cs.addEventListener('change',()=>{location.href='index.php?'+new URLSearchParams({v:cs.dataset.view,c:cs.value});});
-const search=$('search'),status=$('status-filter');if(search&&status){const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const filter=()=>{for(const tr of document.querySelectorAll('#directory tbody tr'))tr.hidden=!(norm(tr.textContent).includes(norm(search.value))&&(!status.value||tr.dataset.status===status.value));};search.addEventListener('input',filter);status.addEventListener('change',filter);}
+const search=$('search'),status=$('status-filter');if(search&&status){
+ const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const municipality=$('municipality-filter'),site=$('site-filter');
+ const filter=()=>{for(const tr of document.querySelectorAll('#directory tbody tr')){
+ let places=[];try{places=JSON.parse(tr.dataset.places||'[]');}catch{}
+ const placeOk=(!municipality?.value&&!site?.value)||places.some(p=>(!municipality?.value||(municipality.value==='__unknown'?!p.municipalities.length:p.municipalities.includes(municipality.value)))&&(!site?.value||norm(p.text).includes(norm(site.value))));
+ tr.hidden=!(norm(tr.textContent).includes(norm(search.value))&&(!status.value||tr.dataset.status===status.value)&&placeOk);
+ }};search.addEventListener('input',filter);status.addEventListener('change',filter);municipality?.addEventListener('change',filter);site?.addEventListener('input',filter);filter();
+}
 const menu=document.getElementById('menu-toggle');if(menu){menu.addEventListener('click',()=>document.body.classList.toggle('nav-open'));document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('nav-open')});document.querySelector('.shell')?.addEventListener('click',e=>{if(e.target!==menu&&document.body.classList.contains('nav-open'))document.body.classList.remove('nav-open')});}
 
 /* Preparación local de correo: no realiza envíos. */
