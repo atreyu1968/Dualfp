@@ -72,6 +72,25 @@ journalctl -u fpdual-worker.service -n 50 --no-pager
 
 Abra la URL HTTPS de su dominio en el navegador. Inicie sesión con el administrador creado durante la instalación. Configure identidad institucional, URL pública, Resend (clave y remitente verificado), cursos, grupos, tutores, ayudas y privacidad. Realice un envío de prueba, revise la protección de datos y solo entonces habilite registro, campañas y recordatorios. La instalación por sí sola no envía campañas.
 
+### Cloudflare Tunnel con destino HTTP: mensaje «Se requiere HTTPS»
+
+La aplicación comprueba HTTPS en PHP. Cloudflare comunica el protocolo exterior mediante X-Forwarded-Proto, pero no se debe confiar en esa cabecera desde cualquier cliente. Si cloudflared se ejecuta en el mismo contenedor, configure el destino del túnel como http://127.0.0.1:80 y utilice 127.0.0.1 como IP autorizada. Si se ejecuta en otro equipo, determine su IP real de conexión al origen y restrinja el acceso al origen a ese equipo; para datos personales se recomienda TLS también en el tramo local o una red privada aislada.
+
+Como root, descargue y revise el script:
+
+```bash
+cd /root
+curl -fL --retry 3 https://raw.githubusercontent.com/atreyu1968/Dualfp/main/configure-tunnel.sh -o configure-tunnel.sh
+bash -n configure-tunnel.sh
+cat configure-tunnel.sh
+# Sustituya DOMINIO e IP_DEL_CONECTOR por los valores reales:
+bash configure-tunnel.sh DOMINIO IP_DEL_CONECTOR
+```
+
+El script crea fpdual-trusted-tunnel.conf en Apache. Solo activa HTTPS para el host exacto, la IP TCP exacta del conector autorizado (CONN_REMOTE_ADDR) y X-Forwarded-Proto igual a https. No modifica la exigencia HTTPS de la aplicación ni la configuración de datos. El actualizador conserva esta configuración Apache. Habilite la redirección HTTP a HTTPS en Cloudflare y no publique directamente el puerto 80 del origen. No autorice una red completa ni la IP del navegador. Si cambia la IP del conector, ejecute de nuevo el script con la IP correcta. Para retirar esta configuración: a2disconf fpdual-trusted-tunnel && apache2ctl configtest && systemctl reload apache2.
+
+Verificación local de la directiva con Apache 2.4 y mod_php: HTTPS se reconoce desde el peer autorizado con host correcto y cabecera https; no se reconoce con cabecera http, host distinto o peer distinto. Pendiente comprobar el túnel real. Referencia: https://developers.cloudflare.com/fundamentals/reference/http-headers/
+
 ### Si aparece Apache2 Default Page (It works!)
 
 En instalaciones anteriores, la página de bienvenida podía seguir habilitada y recibir las peticiones realizadas por IP. No reinstale la aplicación ni borre datos. Ejecute como root:
