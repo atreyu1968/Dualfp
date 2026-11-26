@@ -35,9 +35,9 @@ function location_url(string $v):string {
  return $v;
 }
 function location_links(array $e,bool $site=false):void {
- $name=trim($e['name']??'');$place=trim($site?($e['detail']??''):($e['address']??''));$zone=trim($e['zone']??'');
+ $name=trim($e['name']??'');$place=trim($site?($e['detail']??''):($e['address']??''));$zone=trim(($site?($e['municipality']??''):($e['zone']??'')));
  $q=implode(', ',array_filter([$name,$place,$zone,'Tenerife, España']));$map=$e['map']??'';$route=$e['route']??'';
- if($place||($zone&&$zone!=='Por concretar')){$map=$map?:'https://www.google.com/maps/search/?api=1&query='.rawurlencode($q);$route=$route?:'https://www.google.com/maps/dir/?api=1&destination='.rawurlencode($q);}
+ if($place||($zone&&!in_array(imp_norm($zone),['por concretar','tenerife','tenerife sur'],true))){$map=$map?:'https://www.google.com/maps/search/?api=1&query='.rawurlencode($q);$route=$route?:'https://www.google.com/maps/dir/?api=1&destination='.rawurlencode($q);}
  echo '<div class="actions location-links">';
  foreach(['Web oficial'=>$e['web']??'','Ver mapa'=>$map,'Cómo llegar'=>$route] as $label=>$url){try{$url=location_url($url);}catch(InvalidArgumentException $x){continue;}if($url)echo '<a class="button secondary" href="'.h($url).'" target="_blank" rel="noopener noreferrer">'.h($label).'</a>';}
  echo '</div>';if(!empty($e['location_note']))echo '<small>'.h($e['location_note']).'</small>';if(!empty($e['location_source'])){try{$source=location_url($e['location_source']);if($source)echo '<small><a href="'.h($source).'" target="_blank" rel="noopener noreferrer">Fuente de ubicación</a></small>';}catch(InvalidArgumentException $x){}}
@@ -54,7 +54,7 @@ function location_places(array $e):array{
 function company_remove_blockers(array $d,string $cid,string $eid,bool $full):array{
  $l=participation($d,$cid,$eid);$master=master_id($eid);$errors=[];
  if(($l['confirmed']??0)>0||($l['requested']??0)>0)$errors[]='Tiene plazas solicitadas o confirmadas.';
- if(!empty($l['history'])||in_array($l['status']??'',['Interesada','En negociación','Confirmada','Convenio formalizado'],true))$errors[]='Tiene seguimiento o colaboración en curso.';
+ if(!empty($l['history'])||!empty($l['notes'])||!empty($l['next'])||in_array($l['status']??'',['Interesada','En negociación','Confirmada','Convenio formalizado'],true))$errors[]='Tiene seguimiento o colaboración en curso.';
  foreach($d['students'][$cid]??[] as $st)if(($st['company']??'')===$eid){$errors[]='Tiene alumnado asignado.';break;}
  foreach($d['docs']??[] as $doc)if(($doc['course']??'')===$cid&&($doc['company']??'')===$eid){$errors[]='Tiene documentos o expedientes.';break;}
  foreach($d['campaigns']??[] as $p)if(($p['course']??'')===$cid&&isset($p['rows'][$eid])){$errors[]='Figura en una campaña; debe conservarse su referencia.';break;}
