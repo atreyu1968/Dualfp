@@ -42,6 +42,42 @@ function location_links(array $e,bool $site=false):void {
  foreach(['Web oficial'=>$e['web']??'','Ver mapa'=>$map,'Cómo llegar'=>$route] as $label=>$url){try{$url=location_url($url);}catch(InvalidArgumentException $x){continue;}if($url)echo '<a class="button secondary" href="'.h($url).'" target="_blank" rel="noopener noreferrer">'.h($label).'</a>';}
  echo '</div>';if(!empty($e['location_note']))echo '<small>'.h($e['location_note']).'</small>';if(!empty($e['location_source'])){try{$source=location_url($e['location_source']);if($source)echo '<small><a href="'.h($source).'" target="_blank" rel="noopener noreferrer">Fuente de ubicación</a></small>';}catch(InvalidArgumentException $x){}}
 }
+
+function location_municipalities(string $text):array{
+ $v=imp_norm($text);$out=[];foreach(['Arona'=>['arona','los cristianos','el fraile','palm mar','guaza','buzanada','valle de san lorenzo','cho','guargacho'],'Adeje'=>['adeje','costa adeje','torviscas','playa paraiso','la caleta','fanabe'],'Guía de Isora'=>['guia de isora','alcala','playa de san juan','fonsalia','tejina de isora','piedra hincada','himeche'],'Santiago del Teide'=>['santiago del teide','puerto de santiago','los gigantes','tamaimo','acantilado de los gigantes'],'Icod de los Vinos'=>['icod de los vinos'],'Buenavista del Norte'=>['buenavista del norte'],'San Juan de la Rambla'=>['san juan de la rambla']] as $m=>$terms)foreach($terms as $term)if(str_contains(' '.$v.' ',' '.$term.' ')){$out[]=$m;break;}return $out;
+}
+function location_places(array $e):array{
+ $out=[];$base=trim(($e['zone']??'').' '.($e['address']??''));$municipalities=location_municipalities($base);
+ foreach($e['sites']??[] as $site){$text=trim(($site['name']??'').' '.($site['detail']??''));$m=location_municipalities(($site['municipality']??'').' '.($site['detail']??''));if(!$m&&count($municipalities)===1)$m=$municipalities;$out[]=['text'=>$text,'municipalities'=>$m];}
+ if(!$out)$out[]=['text'=>trim(($e['name']??'').' '.$base),'municipalities'=>$municipalities];return $out;
+}
+function company_remove_blockers(array $d,string $cid,string $eid,bool $full):array{
+ $l=participation($d,$cid,$eid);$master=master_id($eid);$errors=[];
+ if(($l['confirmed']??0)>0||($l['requested']??0)>0)$errors[]='Tiene plazas solicitadas o confirmadas.';
+ if(!empty($l['history'])||in_array($l['status']??'',['Interesada','En negociación','Confirmada','Convenio formalizado'],true))$errors[]='Tiene seguimiento o colaboración en curso.';
+ foreach($d['students'][$cid]??[] as $st)if(($st['company']??'')===$eid){$errors[]='Tiene alumnado asignado.';break;}
+ foreach($d['docs']??[] as $doc)if(($doc['course']??'')===$cid&&($doc['company']??'')===$eid){$errors[]='Tiene documentos o expedientes.';break;}
+ foreach($d['campaigns']??[] as $p)if(($p['course']??'')===$cid&&isset($p['rows'][$eid])){$errors[]='Figura en una campaña; debe conservarse su referencia.';break;}
+ foreach($d['inbox']??[] as $m)if(($m['course']??'')===$cid&&($m['link']??'')===$eid){$errors[]='Tiene mensajes vinculados.';break;}
+ foreach($d['interest_evidence']??[] as $x)if(($x['company']??'')===$master&&(($x['course']??'')===$cid&&($x['group']??'')===($l['group']??'')||$full)){$errors[]='Tiene evidencias de interés o autorización.';break;}
+ $others=0;foreach($d['links']??[] as $course=>$ls)foreach($ls as $id=>$x)if(master_id((string)$id)===$master&&($course!==$cid||(string)$id!==$eid))$others++;
+ if($full&&$others)$errors[]='Está vinculada a otros grupos o cursos.';
+ if(!$full&&!$others)$errors[]='Es la última colaboración: utilice Eliminar ficha completa.';
+ if($full){
+  foreach(['accounts','invites'] as $k)foreach($d[$k]??[] as $a)if(($a['company']??'')===$master){$errors[]='Tiene cuentas o invitaciones empresariales.';break 2;}
+  if(!empty($d['campaign_permissions'][$master]))$errors[]='Tiene autorizaciones de correo registradas.';
+  foreach($d['students']??[] as $ss)foreach($ss as $st)if(($st['company']??'')!==''&&master_id($st['company'])===$master){$errors[]='Tiene asignaciones históricas.';break 2;}
+  foreach($d['docs']??[] as $doc)if(($doc['company']??'')!==''&&master_id($doc['company'])===$master){$errors[]='Tiene documentación histórica.';break;}
+  foreach($d['campaigns']??[] as $p)foreach($p['rows']??[] as $id=>$r)if(master_id((string)$id)===$master){$errors[]='Tiene referencias históricas en campañas.';break 2;}
+  foreach($d['inbox']??[] as $m)if(($m['link']??'')!==''&&master_id($m['link'])===$master){$errors[]='Tiene mensajes históricos.';break;}
+ }
+ return array_values(array_unique($errors));
+}
+function company_remove(array &$d,string $cid,string $eid,bool $full):void{
+ require_admin();editable($d,$cid);$errors=company_remove_blockers($d,$cid,$eid,$full);if($errors)fail(implode(' ',$errors),409);
+ $master=master_id($eid);unset($d['links'][$cid][$eid]);if($full)unset($d['companies'][$master]);audit($d,$full?'Ficha empresarial eliminada':'Colaboración retirada',$cid,$eid);
+}
+
 function set_profile(array &$e): void {foreach(['name','zone','sector','emails','phone','contact','nif','address'] as $k)$e[$k]=field($k,500);if(!$e['name'])fail('Nombre obligatorio');try{foreach(['web','map','route','location_source'] as $k)if(isset($_POST[$k]))$e[$k]=location_url(field($k,1000));}catch(InvalidArgumentException $x){fail($x->getMessage());}if(isset($_POST['location_note']))$e['location_note']=field('location_note',500);$kind=field('kind');if(!in_array($kind,['Empresa','Organismo','Asociación'],true))fail('Tipo incorrecto');$e['kind']=$kind;}
 
 function ag_cycles(): array {return ['sa'=>'CFGB Servicios Administrativos','ga'=>'CFGM Gestión Administrativa','af'=>'CFGS Administración y Finanzas','ad'=>'CFGS Asistencia a la Dirección'];}
