@@ -41,3 +41,7 @@ Antes de habilitar datos reales: instalación en Ubuntu 24.04, HTTPS, verificaci
 ## Revisión 3.7 — Colaboraciones múltiples
 
 Se ha eliminado la limitación de un grupo por empresa y curso mediante referencias estables, sin cambiar las colaboraciones históricas. 124 comprobaciones HTTP (cero errores PHP), 21 de campañas/importación y 17 pruebas de multigrupo superadas localmente con datos ficticios y correo simulado. Se verificaron las huellas Git de los archivos PHP modificados frente a la rama de desarrollo. Se mantiene la aceptación pendiente en Ubuntu y Resend real. Capacidad global de empresa y solapamientos horarios entre grupos requieren revisión humana. La limitación multigrupo descrita en la auditoría anterior queda superada.
+
+## Revisión 3.8 — Buzón empresarial
+
+Pruebas locales: 124 HTTP funcionales anteriores, 38 regresiones de campañas/importación/multigrupo, 24 pruebas del buzón y 25 HTTP del webhook, en total 211 comprobaciones. Sin errores PHP en los escenarios HTTP. Se ha comprobado firma HMAC, caducidad, destinatario, deduplicación, acceso privado, retención de seguimiento, asociación manual, respuesta simulada y borrado. Se requiere prueba de recepción y entrega real en Resend, configuración de dominio y despliegue Ubuntu. No se descargan adjuntos ni se envían respuestas automáticas.
