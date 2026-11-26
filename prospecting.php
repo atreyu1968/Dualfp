@@ -2,12 +2,24 @@
 declare(strict_types=1);
 if(realpath($_SERVER['SCRIPT_FILENAME']??'')===__FILE__){http_response_code(404);exit;}
 function pc_consent():string{return 'Deseo recibir por correo invitaciones y novedades de colaboración FEOE de Administración y Gestión del centro. Puedo darme de baja en cualquier momento.';}
-function pc_open(array $d,array $cfg):bool{
- $s=$d['settings'];$c=$d['courses'][$s['active']]??[];
- return !empty($s['public'])&&!empty($s['privacy'])&&empty($c['closed'])&&!empty($c['groups'])&&mail_ready($cfg);
+function pc_blockers(array $d):array{
+ $s=$d['settings'];$c=$d['courses'][$s['active']]??[];$errors=[];
+ if(empty($s['public']))$errors[]='Marque Habilitar formulario público y guarde.';
+ if(trim($s['privacy']??'')==='')$errors[]='Introduzca el aviso de protección de datos validado por el centro.';
+ if(!$c||!empty($c['closed']))$errors[]='Seleccione un curso publicado abierto.';
+ if(empty($c['groups']))$errors[]='Añada al menos un grupo al curso publicado.';
+ return $errors;
+}
+function pc_auto(array $d,array $cfg):bool{return ($d['settings']['interest_mode']??'auto')==='auto'&&mail_ready($cfg);}
+function pc_open(array $d,array $cfg):bool{return !pc_blockers($d);}
+function pc_manual_pending(array $r):bool{return !empty($r['manual_review']);}
+function pc_reviewed(array $r):bool{return !empty($r['verified_at'])||!empty($r['reviewed_at']);}
+function pc_status(array $d,array $cfg):string{
+ $errors=pc_blockers($d);if($errors)return 'Formulario no publicado: '.implode(' ',$errors);
+ return pc_auto($d,$cfg)?'Formulario publicado · verificación automática por Resend (si falla, revisión manual).':'Formulario publicado · revisión manual de solicitudes. No se envían correos automáticos de verificación.';
 }
 function pc_prune(array &$d):void{
- foreach($d['interest_requests']??[] as $id=>$r)if(empty($r['verified_at'])&&($r['expires']??0)<time())unset($d['interest_requests'][$id]);
+ foreach($d['interest_requests']??[] as $id=>$r)if(!pc_reviewed($r)&&($r['expires']??0)<time())unset($d['interest_requests'][$id]);
 }
 function pc_submit(array &$d,array $cfg,string $dir):string{
  if(!pc_open($d,$cfg))fail('Formulario no disponible. Contacte con el centro.',403);
@@ -16,39 +28,49 @@ function pc_submit(array &$d,array $cfg,string $dir):string{
  $cid=field('c');$g=field('group');if($cid!==$d['settings']['active']||!isset($d['courses'][$cid]['groups'][$g]))fail('Grupo no disponible');
  $name=field('name');if(!$name)fail('Nombre obligatorio');
  if(count($d['interest_requests']??[])>=500)fail('El centro debe revisar las solicitudes pendientes. Contacte directamente.',503);
- $generic='Si la solicitud puede tramitarse, recibirá un correo de verificación. Compruebe su bandeja.';
+ $auto=pc_auto($d,$cfg);$generic='Solicitud recibida. El centro revisará la información. Si recibe un enlace de verificación, confirme su correo.';
  foreach($d['interest_requests']??[] as $id=>$r)if($r['email']===$mail&&$r['course']===$cid&&$r['group']===$g){
-  if(!empty($r['verified_at'])){flash($generic);return '?v=landing#interes';}
+  if(pc_reviewed($r)||pc_manual_pending($r)){flash($generic);return '?v=landing#interes';}
   unset($d['interest_requests'][$id]);
  }
- $id=uid();$t=bin2hex(random_bytes(32));$r=['name'=>$name,'email'=>$mail,'course'=>$cid,'group'=>$g,'requested'=>integer('requested',100),'notes'=>field('notes',3000),'created'=>date(DATE_ATOM),'expires'=>time()+86400,'token'=>hash('sha256',$t),'verified_at'=>'','optin'=>field('campaign_optin')==='yes','consent_text'=>pc_consent(),'privacy_text'=>$d['settings']['privacy'],'center'=>$d['settings']['center']];
+ $id=uid();$t=bin2hex(random_bytes(32));$r=['name'=>$name,'email'=>$mail,'course'=>$cid,'group'=>$g,'requested'=>integer('requested',100),'notes'=>field('notes',3000),'created'=>date(DATE_ATOM),'expires'=>time()+($auto?86400:30*86400),'token'=>$auto?hash('sha256',$t):'','verified_at'=>'','manual_review'=>!$auto,'optin'=>$auto&&field('campaign_optin')==='yes','consent_text'=>pc_consent(),'privacy_text'=>$d['settings']['privacy'],'center'=>$d['settings']['center']];
  foreach(['zone','sector','contact','phone'] as $k)$r[$k]=field($k);
  $d['interest_requests'][$id]=$r;save_db($dir,$d);
- send_link($cfg,$dir,$mail,'Confirme su solicitud FEOE','Ha solicitado información sobre colaboración educativa. Confirme el correo mediante el enlace (24 horas). La autorización de campañas es opcional y se confirma en el siguiente paso.','interest_verify',$t);
+ if($auto&&!send_link($cfg,$dir,$mail,'Confirme su solicitud FEOE','Ha solicitado información sobre colaboración educativa. Confirme el correo mediante el enlace (24 horas). La autorización de campañas es opcional y se confirma en el siguiente paso.','interest_verify',$t)){$d['interest_requests'][$id]['manual_review']=true;$d['interest_requests'][$id]['expires']=time()+30*86400;$d['interest_requests'][$id]['optin']=false;unset($d['interest_requests'][$id]['token']);save_db($dir,$d);}
  flash($generic);return '?v=landing#interes';
 }
 function pc_find(array $d,string $token):?string{
  if(!preg_match('/^[a-f0-9]{64}$/D',$token))return null;$hash=hash('sha256',$token);
- foreach($d['interest_requests']??[] as $id=>$r)if(empty($r['verified_at'])&&$r['expires']>=time()&&hash_equals($r['token'],$hash))return (string)$id;return null;
+ foreach($d['interest_requests']??[] as $id=>$r)if(!pc_reviewed($r)&&!pc_manual_pending($r)&&$r['expires']>=time()&&hash_equals($r['token']??'',$hash))return (string)$id;return null;
 }
 function pc_verify(array &$d):string{
  $id=pc_find($d,field('token',64));if(!$id)fail('Enlace inválido o caducado',403);
  $r=&$d['interest_requests'][$id];$r['verified_at']=date(DATE_ATOM);$r['optin']=$r['optin']&&field('campaign_optin')==='yes';unset($r['token']);
  audit($d,'Manifestación de interés verificada',$r['course']);flash('Correo verificado. El centro revisará la solicitud. No se ha creado una cuenta.');return '?v=landing#interes';
 }
+function pc_manual_review(array &$d):string{
+ require_admin();$id=field('id');$r=$d['interest_requests'][$id]??null;
+ if(!$r||pc_reviewed($r)||$r['expires']<time())fail('Solicitud no disponible para revisión');
+ editable($d,$r['course']);$note=field('review_note',2000);
+ if(!$note||field('confirmed')!=='yes')fail('Registre el contacto real y confirme la revisión');
+ $r['manual_review']=true;$r['reviewed_at']=date(DATE_ATOM);$r['review_note']=$note;$r['optin']=false;unset($r['token']);
+ $d['interest_requests'][$id]=$r;audit($d,'Solicitud de interés revisada manualmente',$r['course']);
+ flash('Revisión manual registrada. No acredita verificación automática ni autoriza campañas.');
+ return '?v=interests&c='.rawurlencode($r['course']);
+}
 function pc_approve(array &$d):string{
- require_admin();$id=field('id');$r=$d['interest_requests'][$id]??null;if(!$r||!$r['verified_at'])fail('Solicitud sin verificar');
+ require_admin();$id=field('id');$r=$d['interest_requests'][$id]??null;if(!$r||!pc_reviewed($r))fail('Solicitud sin verificar o revisar');
  $cid=$r['course'];editable($d,$cid);if(!isset($d['courses'][$cid]['groups'][$r['group']]))fail('Grupo no disponible');
  $eid=field('existing');$e=['name'=>$r['name'],'nif'=>'','zone'=>$r['zone'],'sector'=>$r['sector'],'kind'=>field('kind'),'emails'=>$r['email'],'phone'=>$r['phone'],'contact'=>$r['contact'],'address'=>'','sites'=>[],'tutors'=>[]];
  if(!in_array($e['kind'],['Empresa','Organismo','Asociación'],true))fail('Tipo inválido');
- if($eid){$eid=master_id($eid);$e=company($d,$eid);if(!in_array($r['email'],camp_emails($e),true))fail('El correo verificado no figura en la ficha. Compruebe la identidad y actualice la ficha antes de vincular.');}
+ if($eid){$eid=master_id($eid);$e=company($d,$eid);if(!in_array($r['email'],camp_emails($e),true))fail('El correo declarado no figura en la ficha. Compruebe la identidad y actualice la ficha antes de vincular.');}
  else{if(imp_matches(imp_index($d['companies']),$e))fail('Posible empresa duplicada. Revise el directorio y vincule la ficha existente.');$eid=uid();$d['companies'][$eid]=$e;}
  $lid=group_link($d['links'][$cid]??[],$eid,$r['group']);
  if($lid===null){$lid=new_link_key($d['links'][$cid]??[],$eid,$r['group']);$l=imp_link($r['group']);$l['status']='Interesada';$l['requested']=$r['requested'];$d['links'][$cid][$lid]=$l;}
  if(camp_status_ok($d['links'][$cid][$lid]))$d['links'][$cid][$lid]['status']='Interesada';
- $d['links'][$cid][$lid]['history'][]=['at'=>date(DATE_ATOM),'type'=>'Interés web verificado','note'=>'Solicitud revisada; plazas orientativas: '.$r['requested'].'. '.$r['notes']];
- $d['interest_evidence'][$id]=['email'=>$r['email'],'company'=>$eid,'course'=>$cid,'group'=>$r['group'],'created'=>$r['created'],'verified_at'=>$r['verified_at'],'approved_at'=>date(DATE_ATOM),'optin'=>$r['optin'],'text'=>$r['consent_text'],'privacy'=>$r['privacy_text'],'center'=>$r['center']];
- if($r['optin']&&!isset($d['campaign_optouts'][$r['email']]))$d['campaign_permissions'][$eid][$r['email']]=['allowed'=>true,'evidence'=>'Formulario público verificado '.$r['verified_at'].'. '.$r['consent_text'].' Referencia '.$id,'at'=>date(DATE_ATOM),'source'=>'interest','reference'=>$id];
+ $d['links'][$cid][$lid]['history'][]=['at'=>date(DATE_ATOM),'type'=>!empty($r['verified_at'])?'Interés web verificado':'Interés web revisado manualmente','note'=>'Solicitud revisada; plazas orientativas: '.$r['requested'].'. '.$r['notes'].(!empty($r['review_note'])?' · Revisión: '.$r['review_note']:'')];
+ $d['interest_evidence'][$id]=['email'=>$r['email'],'company'=>$eid,'course'=>$cid,'group'=>$r['group'],'created'=>$r['created'],'verified_at'=>$r['verified_at'],'approved_at'=>date(DATE_ATOM),'reviewed_at'=>$r['reviewed_at']??'','review_note'=>$r['review_note']??'','optin'=>!empty($r['verified_at'])&&$r['optin'],'text'=>$r['consent_text'],'privacy'=>$r['privacy_text'],'center'=>$r['center']];
+ if(!empty($r['verified_at'])&&$r['optin']&&!isset($d['campaign_optouts'][$r['email']]))$d['campaign_permissions'][$eid][$r['email']]=['allowed'=>true,'evidence'=>'Formulario público verificado '.$r['verified_at'].'. '.$r['consent_text'].' Referencia '.$id,'at'=>date(DATE_ATOM),'source'=>'interest','reference'=>$id];
  unset($d['interest_requests'][$id]);audit($d,'Interés empresarial aprobado',$cid,$lid);flash('Solicitud incorporada; las plazas confirmadas no se han modificado.');return '?v=interests&c='.rawurlencode($cid);
 }
 function pc_verify_ui(array $d):void{
@@ -61,10 +83,15 @@ function pc_verify_ui(array $d):void{
  end_form('Confirmar correo y solicitud');echo '</section>';
 }
 function pc_interests_ui(array $d,string $cid):void{
- echo '<section class="card"><h2>Solicitudes de interés empresarial</h2><p>Solo las solicitudes verificadas y revisadas pueden vincularse. El permiso de campañas se registra automáticamente si se ha confirmado expresamente; las bajas globales se respetan.</p>';
- $n=0;foreach($d['interest_requests']??[] as $id=>$r){if($r['course']!==$cid||(!$r['verified_at']&&$r['expires']<time()))continue;$n++;
- echo '<details><summary>'.h($r['name'].' · '.$r['email'].' · '.($r['verified_at']?'Verificada':'Pendiente de verificar')).'</summary><p>'.h($r['contact'].' · '.$r['phone'].' · '.$r['zone'].' · '.($d['courses'][$cid]['groups'][$r['group']]['name']??'').' · '.$r['requested'].' plazas orientativas').'</p><p>'.h($r['notes']).'</p><p>Autorización: '.($r['optin']&&$r['verified_at']?'Confirmada': 'No confirmada').'</p>';
- if($r['verified_at']&&!$d['courses'][$cid]['closed']){
+ echo '<section class="card"><h2>Solicitudes de interés empresarial</h2><p>Las solicitudes se pueden aprobar tras verificación por correo o tras una revisión manual documentada. Solo la confirmación expresa por correo puede generar un permiso automático de campañas; las bajas globales se respetan.</p>';
+ $n=0;foreach($d['interest_requests']??[] as $id=>$r){if($r['course']!==$cid||(!pc_reviewed($r)&&$r['expires']<time()))continue;$n++;
+ echo '<details><summary>'.h($r['name'].' · '.$r['email'].' · '.(!empty($r['verified_at'])?'Correo verificado':(!empty($r['reviewed_at'])?'Revisada manualmente':(pc_manual_pending($r)?'Pendiente de revisión manual':'Pendiente de verificar')))).'</summary><p>'.h($r['contact'].' · '.$r['phone'].' · '.$r['zone'].' · '.($d['courses'][$cid]['groups'][$r['group']]['name']??'').' · '.$r['requested'].' plazas orientativas').'</p><p>'.h($r['notes']).'</p><p>Autorización: '.($r['optin']&&$r['verified_at']?'Confirmada': 'No confirmada').'</p>';
+ if(!pc_reviewed($r)&&!$d['courses'][$cid]['closed']){
+ form_start('pc_manual_review',['id'=>$id]);area('review_note','Evidencia de contacto real (fecha, canal y persona o departamento)','');
+ echo '<label class="check"><input type="checkbox" name="confirmed" value="yes" required> He contactado con la entidad y confirmado que la solicitud es auténtica. No concede autorización de campañas.</label>';end_form('Registrar revisión manual');
+ }
+ if(!empty($r['reviewed_at']))echo '<p>Revisión manual: '.h($r['reviewed_at'].' · '.$r['review_note']).'</p>';
+ if(pc_reviewed($r)&&!$d['courses'][$cid]['closed']){
  $opts=[''=>'Crear ficha nueva (si no hay duplicados)'];foreach($d['companies'] as $eid=>$e)if(in_array($r['email'],camp_emails($e),true))$opts[$eid]=$e['name'].' · '.$e['zone'];
  form_start('pc_approve',['id'=>$id]);select_field('existing','Empresa (revise identidad)',$opts);select_field('kind','Tipo para alta nueva',['Empresa'=>'Empresa','Organismo'=>'Organismo','Asociación'=>'Asociación']);end_form('Aprobar solicitud');
  }
@@ -84,6 +111,7 @@ function pc_contact_ui(array $d,array $cfg,string $cid,string $eid):void{
 function pc_action(string $action,array &$d,array $cfg,string $dir,string $cid,string $eid):string{
  if($action==='pc_verify')return pc_verify($d);
  require_admin();
+ if($action==='pc_manual_review')return pc_manual_review($d);
  if($action==='pc_approve')return pc_approve($d);
  if($action==='pc_discard'){$id=field('id');if(!isset($d['interest_requests'][$id]))fail('Solicitud inexistente',404);$c=$d['interest_requests'][$id]['course'];unset($d['interest_requests'][$id]);audit($d,'Solicitud de interés descartada',$c);return '?v=interests&c='.rawurlencode($c);}
  if(in_array($action,['pc_smtp_settings','pc_smtp_test','pc_contact'],true))fail('SMTP institucional retirado. Utilice Preparar correo.',410);
