@@ -119,7 +119,7 @@ function pc_smtp_ui(array $d):void{
  if(pc_smtp_ready($s)){form_start('pc_smtp_test');end_form('Enviar prueba SMTP al administrador');}
 }
 function pc_contact_ui(array $d,array $cfg,string $cid,string $eid):void{
- $e=company($d,$eid);$mails=camp_emails($e);$s=pc_smtp_config($d);$base=rtrim($cfg['public_url']??'','/');
+ $e=company($d,$eid);if(($d['links'][$cid][$eid]['status']??'')==='Rechazada'){echo '<p>Colaboración rechazada: no se ofrece contacto de captación.</p>';return;}$mails=camp_emails($e);$s=pc_smtp_config($d);$base=rtrim($cfg['public_url']??'','/');
  echo '<h3>Primer contacto institucional individual</h3><p>Revise la finalidad y el destinatario. No es una campaña ni concede autorización. Use su correo institucional con las instrucciones del centro. No contacte direcciones dadas de baja.</p>';
  foreach($mails as $mail){if(isset($d['campaign_optouts'][$mail]))continue;
  $subject='Propuesta de colaboración educativa FEOE';$body=strtr(camp_default(),camp_tokens($d,$cfg+['public_url'=>$base],$cid,$eid,$mail));$body.="\n\nSi prefiere no recibir nuevas propuestas, comuníquenoslo.";
@@ -129,7 +129,7 @@ function pc_contact_ui(array $d,array $cfg,string $cid,string $eid):void{
 }
 function pc_contact(array &$d,array $cfg,string $dir,string $cid,string $eid):string{
  require_admin();editable($d,$cid);participation($d,$cid,$eid);$mail=email('email');$s=pc_smtp_config($d);
- if(!pc_smtp_ready($s)||!in_array($mail,camp_emails(company($d,$eid)),true)||isset($d['campaign_optouts'][$mail])||field('confirm')!=='yes')fail('Envío no permitido',403);
+ if(($d['links'][$cid][$eid]['status']??'')==='Rechazada'||!pc_smtp_ready($s)||!in_array($mail,camp_emails(company($d,$eid)),true)||isset($d['campaign_optouts'][$mail])||field('confirm')!=='yes')fail('Envío no permitido',403);
  $hist=&$d['links'][$cid][$eid]['history'];if(field('revision')!==(string)count($hist))fail('La ficha cambió; recargue antes de enviar');
  $day=date('Y-m-d');$counts=$d['smtp_daily']??['day'=>$day,'count'=>0,'mails'=>[]];if($counts['day']!==$day)$counts=['day'=>$day,'count'=>0,'mails'=>[]];if($counts['count']>=10||isset($counts['mails'][$mail]))fail('Límite de primer contacto: diez intentos diarios y uno por dirección. Revise el historial.');
  $subject=field('subject',180);$body=field('body',12000);if(!$body)fail('Mensaje vacío');try{pc_smtp_message($s,$mail,$subject,$body);}catch(InvalidArgumentException $e){fail($e->getMessage());}
@@ -147,4 +147,17 @@ function pc_action(string $action,array &$d,array $cfg,string $dir,string $cid,s
  if($action==='pc_smtp_test'){$s=pc_smtp_config($d);auth_limit($d,$dir,'smtp_test',$cfg['admin_email'],3);$ok=pc_smtp_send($s,$cfg['admin_email'],'Prueba SMTP FP Dual','Prueba de configuración del canal institucional.');flash($ok?'Prueba aceptada por SMTP.':'No se pudo confirmar la prueba SMTP.');return '?v=settings';}
  if($action==='pc_contact')return pc_contact($d,$cfg,$dir,$cid,$eid);
  fail('Acción desconocida');
+}
+
+function pc_first_contacts_ui(array $d,string $cid):void{
+ $c=course($d,$cid);$closed=$c['closed'];$rows=[];$totals=['Pendiente de primer contacto'=>0,'Contacto registrado'=>0,'Campañas autorizadas'=>0,'Colaboración en curso'=>0,'No contactar'=>0,'Sin correo'=>0];
+ foreach($d['links'][$cid]??[] as $eid=>$l){
+  $e=$l['snapshot']??company($d,(string)$eid);$mails=camp_emails($e);$available=array_values(array_filter($mails,fn($m)=>!isset($d['campaign_optouts'][$m])));$allowed=array_filter($available,fn($m)=>camp_allowed($d,(string)$eid,$m));
+  $status=(!$mails?'Sin correo':(!$available?'No contactar':(in_array($l['status'],['Interesada','En negociación','Confirmada','Convenio formalizado'],true)||$l['confirmed']>0?'Colaboración en curso':($l['status']==='Rechazada'?'No contactar':($allowed?'Campañas autorizadas':($l['history']||in_array($l['status'],['Contactada','Sin respuesta'],true)?'Contacto registrado':'Pendiente de primer contacto'))))));
+  $totals[$status]++;$rows[]=[$eid,$e,$l,$status,$available];
+ }
+ echo '<section class="card"><h2>Prospección institucional</h2><p>No se exige autorización de campañas para gestionar una empresa, llamar o preparar un primer contacto institucional permitido. Esta lista no envía correos automáticamente. Compruebe las instrucciones del centro, la finalidad y las negativas de contacto.</p>';
+ echo '<div class="metrics">';foreach($totals as $label=>$n)panel_metric($label,$n);echo '</div><div class="fields"><label>Buscar<input id="search" placeholder="Empresa, localidad, correo…"></label><label>Situación<select id="status-filter"><option value="">Todas</option>';foreach($totals as $label=>$n)echo '<option>'.h($label).'</option>';echo '</select></label></div><div class="scroll"><table id="directory"><thead><tr><th>Empresa</th><th>Grupo</th><th>Situación</th><th>Próximo contacto</th><th>Acción</th></tr></thead><tbody>';
+ foreach($rows as [$eid,$e,$l,$status,$available]){echo '<tr data-status="'.h($status).'"><td>'.h($e['name']).'<small>'.h($e['zone'].' · '.$e['phone']).'</small><small>'.h(implode(', ',$available)).'</small></td><td>'.h($c['groups'][$l['group']]['name']??'').'</td><td>'.h($status).'</td><td>'.h($l['next']).'</td><td>';a('company',$closed?'Consultar':'Abrir ficha y registrar contacto',$cid,(string)$eid);echo '</td></tr>';}
+ echo '</tbody></table></div></section>';
 }
