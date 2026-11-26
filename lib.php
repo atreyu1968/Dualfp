@@ -29,7 +29,20 @@ function area(string $k,string $label,$v=''): void {echo '<label>'.h($label).'<t
 function select_field(string $k,string $label,array $opts,$v=''): void {echo '<label>'.h($label).'<select name="'.h($k).'">';foreach($opts as $id=>$n)echo '<option value="'.h($id).'"'.((string)$id===(string)$v?' selected':'').'>'.h($n).'</option>';echo '</select></label>';}
 function groups(array $c): array {return array_map(fn($g)=>$g['name'],$c['groups']);}
 function count_assigned(array $d,string $cid,string $eid): int {return count(array_filter($d['students'][$cid]??[],fn($s)=>$s['company']===$eid));}
-function set_profile(array &$e): void {foreach(['name','zone','sector','emails','phone','contact','nif','address'] as $k)$e[$k]=field($k,500);if(!$e['name'])fail('Nombre obligatorio');$kind=field('kind');if(!in_array($kind,['Empresa','Organismo','Asociación'],true))fail('Tipo incorrecto');$e['kind']=$kind;}
+function location_url(string $v):string {
+ $v=trim($v);if($v==='')return '';
+ $p=parse_url($v);if(strlen($v)>1000||preg_match('/[\\x00-\\x20\\x7f]/',$v)||!filter_var($v,FILTER_VALIDATE_URL)||!is_array($p)||!in_array(strtolower($p['scheme']??''),['http','https'],true)||empty($p['host'])||isset($p['user'])||isset($p['pass']))throw new InvalidArgumentException('URL web o mapa inválida. Use HTTP/HTTPS sin credenciales.');
+ return $v;
+}
+function location_links(array $e,bool $site=false):void {
+ $name=trim($e['name']??'');$place=trim($site?($e['detail']??''):($e['address']??''));$zone=trim($e['zone']??'');
+ $q=implode(', ',array_filter([$name,$place,$zone,'Tenerife, España']));$map=$e['map']??'';$route=$e['route']??'';
+ if($place||($zone&&$zone!=='Por concretar')){$map=$map?:'https://www.google.com/maps/search/?api=1&query='.rawurlencode($q);$route=$route?:'https://www.google.com/maps/dir/?api=1&destination='.rawurlencode($q);}
+ echo '<div class="actions location-links">';
+ foreach(['Web oficial'=>$e['web']??'','Ver mapa'=>$map,'Cómo llegar'=>$route] as $label=>$url){try{$url=location_url($url);}catch(InvalidArgumentException $x){continue;}if($url)echo '<a class="button secondary" href="'.h($url).'" target="_blank" rel="noopener noreferrer">'.h($label).'</a>';}
+ echo '</div>';
+}
+function set_profile(array &$e): void {foreach(['name','zone','sector','emails','phone','contact','nif','address'] as $k)$e[$k]=field($k,500);if(!$e['name'])fail('Nombre obligatorio');try{foreach(['web','map','route'] as $k)if(isset($_POST[$k]))$e[$k]=location_url(field($k,1000));}catch(InvalidArgumentException $x){fail($x->getMessage());}$kind=field('kind');if(!in_array($kind,['Empresa','Organismo','Asociación'],true))fail('Tipo incorrecto');$e['kind']=$kind;}
 
 function ag_cycles(): array {return ['sa'=>'CFGB Servicios Administrativos','ga'=>'CFGM Gestión Administrativa','af'=>'CFGS Administración y Finanzas','ad'=>'CFGS Asistencia a la Dirección'];}
 function ag_activities(): array {return ['sa'=>'Archivo, digitalización, comunicación básica y apoyo de oficina.','ga'=>'Facturación, documentación comercial, contabilidad auxiliar, atención al cliente y apoyo administrativo.','af'=>'Gestión contable y financiera, fiscalidad, aprovisionamiento, tesorería y recursos humanos.','ad'=>'Organización de agendas, comunicación profesional, documentación, eventos y apoyo a dirección.'];}
