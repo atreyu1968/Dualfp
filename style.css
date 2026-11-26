@@ -13,3 +13,12 @@
 @media(max-width:900px){.public-ui .public-hero{grid-template-columns:1fr;padding:48px 24px 65px;gap:25px}.public-hero .heroart{min-height:300px}.public-proof{margin:-24px 18px 0}.employment-card{grid-template-columns:1fr}.employment-photo{min-height:260px}.public-ui .section{padding:40px 22px}}
 @media(max-width:520px){.public-proof div{padding:14px 8px}.public-proof strong{font-size:22px}.public-proof small{font-size:11px}.public-hero .heroart{min-height:230px;padding:22px}.public-ui .bar{padding:13px 16px}.public-ui header nav{gap:9px}.public-ui header nav a{font-size:12px}.employment-photo{min-height:220px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* 3.10.1: fotografía explícita y capa de contraste; sin duplicar la descarga CSS. */
+.public-hero .heroart{position:relative;isolation:isolate;background:#20565b}
+.heroart .landing-photo,.employment-photo .landing-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:-2}
+.heroart::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 30%,#102c3c4d 55%,#102c3ced 100%);z-index:-1}
+.hero-caption{position:relative}.employment-photo{position:relative;isolation:isolate;background:#2b6769}.employment-photo .landing-photo{object-position:center 38%}.public-ui footer small{color:#bbebdc}
+
+/* Fotografías locales incluidas en la distribución. */
+.offer-intro{display:grid;grid-template-columns:1fr minmax(0,.82fr);align-items:center;gap:32px;margin:0 0 30px}.offer-intro img{width:100%;height:230px;object-fit:cover;border-radius:20px;box-shadow:0 12px 30px #153a4218}.offer-intro .lead{max-width:570px}.aid-photo{display:block;width:100%;height:150px;object-fit:cover;border-radius:12px;margin-bottom:20px}.heroart .landing-photo{object-position:center 42%}.employment-photo .landing-photo{object-position:center}.public-ui .heroart{min-height:460px}.hero-caption{max-width:100%}.public-ui footer small{font-weight:500;opacity:.85}@media(max-width:900px){.offer-intro{grid-template-columns:1fr;gap:16px}.offer-intro img{height:210px}.public-ui .heroart{min-height:330px}}@media(max-width:520px){.public-ui .heroart{min-height:270px}.offer-intro img{height:170px}.aid-photo{height:120px}}

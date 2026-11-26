@@ -15,6 +15,7 @@ cd "$(dirname "$0")/.."
 apt-get update
 apt-get install -y apache2 libapache2-mod-php php-cli php-curl php-common ca-certificates unzip openssl
 for f in *.php ubuntu/*.php; do php -l "$f" >/dev/null; done
+bash ubuntu/landing-assets.sh --check-source
 php -r 'foreach (["curl","fileinfo","iconv","openssl","session"] as $ext) { if (!extension_loaded($ext)) { fwrite(STDERR,"Extension PHP ausente: $ext\n"); exit(1); } }'
 install -d -m 0755 /var/www/fpdual
 install -d -o www-data -g www-data -m 0700 /var/lib/fpdual
@@ -56,7 +57,7 @@ if [[ ! -e /etc/fpdual/config.php ]]; then
 else
   echo 'Instalación existente: se mantienen la cuenta, las credenciales y los datos.'
 fi
-for file in index.php lib.php auth.php inbox.php prospecting.php mail_composer.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css favicon.svg seed.json .htaccess; do install -o root -g root -m 0644 "$file" /var/www/fpdual/; done
+for file in index.php lib.php auth.php inbox.php prospecting.php mail_composer.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css favicon.svg landing-hero-311.jpg landing-formacion-311.jpg landing-empleo-311.jpg landing-ayudas-311.jpg seed.json .htaccess; do install -o root -g root -m 0644 "$file" /var/www/fpdual/; done
 if [[ ! -e /etc/apache2/sites-available/fpdual.conf ]]; then
   read -r -p 'Dominio del virtual host (sin https://): ' HOST </dev/tty
   [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]] || { echo 'Dominio inválido. Ejecute de nuevo el instalador.'; exit 1; }
@@ -69,7 +70,7 @@ fi
 # En un servidor dedicado, FP Dual sustituye la página de bienvenida.
 # Si hay otros sitios o una configuración personalizada, se conservan.
 bash repair-apache.sh
-if ! bash ubuntu/landing-assets.sh; then echo 'Aviso: fotografías opcionales no instaladas.'; fi
+bash ubuntu/landing-assets.sh --check-installed
 if [[ ! -e /etc/apache2/sites-available/fpdual-le-ssl.conf && -n "$HOST" ]]; then
   read -r -p '¿Configurar ahora HTTPS con Let’s Encrypt? (s/N): ' TLS </dev/tty
   if [[ "$TLS" =~ ^[sS]$ ]]; then
