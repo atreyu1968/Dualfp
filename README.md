@@ -55,6 +55,8 @@ No publique este JSON en GitHub. El repositorio público incluye un seed vacío.
 
 ### Paso 5. Configurar el acceso HTTPS
 
+En una instalación dedicada, el instalador habilita fpdual.conf y deshabilita la página predeterminada estándar de Ubuntu (000-default.conf) si no detecta otros sitios habilitados ni directivas de personalización habituales. Si comparte Apache con otros sitios, conserva estos y deberá acceder mediante el dominio configurado. No se elimina ningún archivo de /var/www/html.
+
 El dominio debe apuntar al servidor mediante DNS. Si usa Let's Encrypt directamente, habilite el acceso externo a los puertos 80 y 443, y compruebe que no hay conflictos con otros servidores. Si utiliza Cloudflare Tunnel, siga la configuración del túnel y del origen HTTPS de confianza de su infraestructura: el instalador no crea el túnel. No desactive la exigencia HTTPS ni confíe en cabeceras arbitrarias de los visitantes.
 
 ### Paso 6. Verificar los servicios
@@ -69,6 +71,19 @@ journalctl -u fpdual-worker.service -n 50 --no-pager
 ```
 
 Abra la URL HTTPS de su dominio en el navegador. Inicie sesión con el administrador creado durante la instalación. Configure identidad institucional, URL pública, Resend (clave y remitente verificado), cursos, grupos, tutores, ayudas y privacidad. Realice un envío de prueba, revise la protección de datos y solo entonces habilite registro, campañas y recordatorios. La instalación por sí sola no envía campañas.
+
+### Si aparece Apache2 Default Page (It works!)
+
+En instalaciones anteriores, la página de bienvenida podía seguir habilitada y recibir las peticiones realizadas por IP. No reinstale la aplicación ni borre datos. Ejecute como root:
+
+```bash
+cd /root
+curl -fL --retry 3 https://raw.githubusercontent.com/atreyu1968/Dualfp/main/repair-apache.sh -o repair-apache.sh
+bash -n repair-apache.sh && bash repair-apache.sh
+apache2ctl -S
+```
+
+El reparador conserva configuraciones personalizadas y otros sitios; comprueba la sintaxis y recarga Apache. En un contenedor dedicado, fpdual.conf debe aparecer como sitio predeterminado del puerto 80. Si al abrir la IP por HTTP aparece «Se requiere HTTPS», el servidor ya dirige la petición a FP Dual; acceda por el dominio HTTPS configurado. La reparación no desactiva HTTPS, no crea certificados y no configura Cloudflare Tunnel. Si el mensaje sigue siendo la página de bienvenida, revise el nombre del virtual host, la dirección IP del origen del túnel y la salida de apache2ctl -S.
 
 ## 2. Actualizar una instalación existente desde GitHub
 
