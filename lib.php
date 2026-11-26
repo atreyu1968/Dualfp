@@ -79,8 +79,14 @@ function site_map_links(string $name,string $detail,string $zone=''):void{
  $q=rawurlencode(implode(', ',array_filter([$name,$detail,$zone,'Tenerife, España'])));
  echo '<div class="actions location-links"><a class="button secondary" href="https://www.google.com/maps/search/?api=1&amp;query='.$q.'" target="_blank" rel="noopener noreferrer">Ver mapa ↗</a><a class="button secondary" href="https://www.google.com/maps/dir/?api=1&amp;destination='.$q.'" target="_blank" rel="noopener noreferrer">Cómo llegar ↗</a></div>';
 }
+function company_location_fallback(array $e):void{
+ if(!empty($e['address'])){site_map_links($e['name'],$e['address'],$e['zone']??'');return;}
+ $zone=trim($e['zone']??'');if(!$zone||strcasecmp($zone,'Por concretar')===0)return;
+ $q=rawurlencode($e['name'].', '.$zone.', Tenerife, España');
+ echo '<p class="muted">Centro de trabajo por confirmar.</p><a class="button secondary" href="https://www.google.com/maps/search/?api=1&amp;query='.$q.'" target="_blank" rel="noopener noreferrer">Buscar ubicación ↗</a>';
+}
 function company_locations(array $e):void{
  company_web_link($e);
  if(!empty($e['sites'])){foreach($e['sites'] as $s){echo '<p><strong>'.h($s['name']).'</strong><small>'.h($s['detail']).'</small></p>';site_map_links($s['name'],$s['detail']);}}
- elseif(!empty($e['address']))site_map_links($e['name'],$e['address'],$e['zone']??'');
+ else company_location_fallback($e);
 }
