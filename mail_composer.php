@@ -10,7 +10,8 @@ function mc_rows(array $d,string $cid):array {
 }
 function mc_templates(array $d,array $cfg,string $cid):array{
  $s=$d['settings'];$center=$s['center'];$year=$d['courses'][$cid]['name'];$url=rtrim($cfg['public_url']??'','/');$sign=$s['tutor']."\nFamilia Profesional de Administración y Gestión\n".$center."\n".$s['contact'];
- $closing="\n\nSi desean recibir información adicional, respondan a este correo o manifiesten su interés en ".$url."/index.php?v=landing#interes, sin compromiso y sin necesidad de crear una cuenta. Si autorizan futuras comunicaciones sobre FEOE, pueden indicarlo expresamente en su respuesta o en el formulario. Si no desean nuevas propuestas, comuníquennoslo.\n\nAtentamente,\n".$sign;
+ $link=valid_public_url($url)?' o manifiesten su interés en '.$url.'/index.php?v=landing#interes, sin compromiso y sin necesidad de crear una cuenta':'';
+ $closing="\n\nSi desean recibir información adicional, respondan a este correo".$link.". Si autorizan futuras comunicaciones sobre FEOE, pueden indicarlo expresamente en su respuesta. Si no desean nuevas propuestas, comuníquennoslo.\n\nAtentamente,\n".$sign;
  return [
  'empresa'=>['label'=>'Empresas privadas · invitación FEOE','kind'=>'Empresa','subject'=>'Invitación a colaborar en la Formación Profesional Dual · '.$center,'body'=>"Estimado/a responsable:\n\nDesde la Familia Profesional de Administración y Gestión de ".$center." buscamos empresas colaboradoras para la Formación en Empresa u Organismo Equiparado (FEOE) del curso ".$year.".\n\nNuestro alumnado puede desarrollar, según su nivel y plan formativo, tareas de gestión administrativa, atención al cliente, facturación, contabilidad, tesorería, compras, almacén, recursos humanos y digitalización.\n\nEl centro coordina la documentación, el plan formativo y el seguimiento. La colaboración permite conocer talento local y contribuir a la formación de futuros profesionales. Las posibles ayudas económicas dependen de la convocatoria aplicable y de sus requisitos.\n\n¿Podrían estudiar la posibilidad de acoger a uno o varios estudiantes?".$closing],
  'organismo'=>['label'=>'Organismos públicos · colaboración educativa','kind'=>'Organismo','subject'=>'Propuesta de colaboración educativa FEOE · '.$center,'body'=>"Estimado/a responsable:\n\nDesde ".$center." deseamos estudiar la colaboración de su organismo con la Familia Profesional de Administración y Gestión durante el curso ".$year.". El alumnado podría desarrollar tareas administrativas acordes con su plan formativo, con tutorización y seguimiento del centro.\n\nAgradeceríamos conocer el departamento competente y la posibilidad de acoger alumnado en Formación en Empresa u Organismo Equiparado.".$closing],
@@ -34,7 +35,7 @@ function mc_action(string $action,array &$d,array $cfg,string $cid):string{
  if($action==='mc_clear_smtp'){if(!password_verify(field('current_password',72),admin_hash($d,$cfg)))fail('Contraseña actual incorrecta',403);unset($d['smtp_config']);audit($d,'Credenciales SMTP retiradas');flash('Credenciales SMTP retiradas del almacén activo.');return '?v=settings';}
  editable($d,$cid);$back='?v=mail_preparer&c='.rawurlencode($cid);
  if($action==='mc_prepare'){
-  $templates=mc_templates($d,$cfg,$cid);$key=field('template');if(!isset($templates[$key]))fail('Plantilla no válida');$ids=$_POST['selected']??[];if(!is_array($ids)||!$ids||count($ids)>2000)fail('Seleccione entre 1 y 2000 colaboraciones');
+  $templates=mc_templates($d,$cfg,$cid);$key=field('template');if(!isset($templates[$key]))fail('Plantilla no válida');$ids=$_POST['selected']??[];if(!is_array($ids)||!$ids||count($ids)>100)fail('Seleccione entre 1 y 100 colaboraciones');
   $t=$templates[$key];$rows=mc_select($d,$cid,$ids,$t['kind']);if(!$rows)fail('No hay destinatarios');
   $_SESSION['mc_batch']=['id'=>uid(),'course'=>$cid,'expires'=>time()+1800,'rows'=>$rows,'template'=>$key,'subject'=>$t['subject'],'body'=>$t['body']];return $back.'&draft=1';
  }
@@ -45,7 +46,7 @@ function mc_action(string $action,array &$d,array $cfg,string $cid):string{
  }
  if($action==='mc_record'){
   $ids=$_POST['sent']??[];if(!is_array($ids)||!$ids||field('confirm')!=='yes')fail('Confirme qué correos se enviaron realmente');
-  $subject=field('subject',500);$body=field('body',12000);if(!$subject||!$body||preg_match('/[\r\n]/',$subject))fail('Asunto y mensaje obligatorios');
+  $subject=field('subject',500);$body=field('body',6000);if(!$subject||!$body||preg_match('/[\r\n]/',$subject))fail('Asunto y mensaje obligatorios');
   $date=field('next',10);if($date&&(!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$date)||!checkdate((int)substr($date,5,2),(int)substr($date,8,2),(int)substr($date,0,4))||$date<date('Y-m-d')))fail('Fecha de seguimiento inválida');
   $ids=array_unique($ids,SORT_REGULAR);foreach($ids as $id){if(!is_string($id)||!isset($b['rows'][$id]))fail('Destinatario no preparado');if(count($d['links'][$cid][$id]['history'])!==$b['rows'][$id]['revision'])fail('Una ficha ha cambiado. Prepare nuevamente antes de registrar.',409);}
   foreach($ids as $id){$l=&$d['links'][$cid][$id];$l['history'][]=['at'=>date(DATE_ATOM),'type'=>'Correo institucional · registrado por administrador','note'=>'Envío externo declarado a '.$b['rows'][$id]['email'].' · '.$subject."\n".$body];if($l['status']==='Identificada')$l['status']='Contactada';if($date)$l['next']=$date;unset($l);audit($d,'Envío institucional registrado',$cid,$id);}
