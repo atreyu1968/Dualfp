@@ -34,7 +34,7 @@ function imp_profile(array $raw): array {
  if($rawsites!==''){
   $items=json_decode($rawsites,true);if(!is_array($items)||!array_is_list($items)||count($items)>100)throw new InvalidArgumentException('Centros de trabajo JSON: lista de hasta 100 centros.');
   foreach($items as $item){if(!is_array($item)||!is_string($item['name']??null)||trim($item['name'])==='')throw new InvalidArgumentException('Cada centro requiere un nombre.');
-   $site=[];foreach(['name','detail','email','phone','web','map','route'] as $k){$v=$item[$k]??'';if(!is_string($v)||strlen($v)>1000||preg_match('/[\\x00-\\x1f\\x7f]/',$v))throw new InvalidArgumentException('Dato de centro inválido: '.$k);$site[$k]=trim($v);}
+   $site=[];foreach(['name','detail','email','phone','web','map','route','municipality'] as $k){$v=$item[$k]??'';if(!is_string($v)||strlen($v)>1000||preg_match('/[\\x00-\\x1f\\x7f]/',$v))throw new InvalidArgumentException('Dato de centro inválido: '.$k);$site[$k]=trim($v);}
    foreach(['web','map','route'] as $k)$site[$k]=location_url($site[$k]);if($site['email']&&!filter_var($site['email'],FILTER_VALIDATE_EMAIL))throw new InvalidArgumentException('Correo de centro inválido.');
    $key=imp_norm($site['name']);if($key===''||isset($sites[$key]))throw new InvalidArgumentException('Centro repetido o sin nombre válido.');$sites[$key]=$site;
   }
@@ -66,7 +66,7 @@ function imp_enrich(array $old,array $new,string $id):array{
  $changes=[];$add=[];foreach($new['sites']??[] as $site){$name=imp_norm($site['name']);$matches=$names[$name]??[];
   if(count($matches)>1)continue;
   if(!$matches){$key='site-'.hash('sha256',$id.'|'.$name);if(!isset($existing[$key]))$add[$key]=$site;continue;}
-  $sid=$matches[0];$prev=$existing[$sid];foreach(['detail','email','phone','web','map','route'] as $k)if(empty($prev[$k])&&!empty($site[$k]))$changes[$sid][$k]=$site[$k];
+  $sid=$matches[0];$prev=$existing[$sid];foreach(['detail','email','phone','web','map','route','municipality'] as $k)if(empty($prev[$k])&&!empty($site[$k]))$changes[$sid][$k]=$site[$k];
  }
  return ['fields'=>$delta,'add'=>$add,'changes'=>$changes];
 }
