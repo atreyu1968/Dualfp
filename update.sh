@@ -51,7 +51,7 @@ trap 'exit 143' TERM
 git clone --depth 1 --branch main https://github.com/atreyu1968/Dualfp.git "$WORK/source"
 cd "$WORK/source"
 REV=$(git rev-parse HEAD)
-FILES=(index.php lib.php auth.php inbox.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css seed.json .htaccess)
+FILES=(index.php lib.php auth.php inbox.php prospecting.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css favicon.svg seed.json .htaccess)
 for f in "${FILES[@]}" ubuntu/worker.php ubuntu/fpdual-worker.service ubuntu/fpdual-worker.timer; do
   [[ -s "$f" && ! -L "$f" ]] || { echo "Archivo ausente o no valido: $f" >&2; exit 1; }
 done

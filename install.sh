@@ -13,7 +13,7 @@ WORK=$(mktemp -d /tmp/fpdual-install.XXXXXX)
 trap 'rm -rf -- "$WORK"' EXIT
 git clone --depth 1 --branch main https://github.com/atreyu1968/Dualfp.git "$WORK/source"
 cd "$WORK/source"
-for f in index.php lib.php auth.php inbox.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css seed.json ubuntu/install.sh ubuntu/validate-seed.php update.sh repair-apache.sh; do
+for f in index.php lib.php auth.php inbox.php prospecting.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css favicon.svg seed.json ubuntu/install.sh ubuntu/validate-seed.php update.sh repair-apache.sh; do
   [[ -s "$f" ]] || { echo "Publicación incompleta: $f" >&2; exit 1; }
 done
 printf 'Instalando revisión %s\n' "$(git rev-parse HEAD)"

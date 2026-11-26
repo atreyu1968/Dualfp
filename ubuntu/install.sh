@@ -56,7 +56,7 @@ if [[ ! -e /etc/fpdual/config.php ]]; then
 else
   echo 'Instalación existente: se mantienen la cuenta, las credenciales y los datos.'
 fi
-for file in index.php lib.php auth.php inbox.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css seed.json .htaccess; do install -o root -g root -m 0644 "$file" /var/www/fpdual/; done
+for file in index.php lib.php auth.php inbox.php prospecting.php campaigns.php imports.php panels.php portal.php teacher.php app.js style.css favicon.svg seed.json .htaccess; do install -o root -g root -m 0644 "$file" /var/www/fpdual/; done
 if [[ ! -e /etc/apache2/sites-available/fpdual.conf ]]; then
   read -r -p 'Dominio del virtual host (sin https://): ' HOST </dev/tty
   [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]] || { echo 'Dominio inválido. Ejecute de nuevo el instalador.'; exit 1; }
