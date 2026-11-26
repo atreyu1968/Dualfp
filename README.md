@@ -1,4 +1,4 @@
-# FP Dual Conecta A&G 3.8 · Ubuntu y Resend
+# FP Dual Conecta A&G 3.9 · Ubuntu y Resend
 
 **Revisión del 26/11/2026:** consulte [AUDITORIA.md](AUDITORIA.md) para conocer los resultados de las pruebas, las correcciones y las verificaciones pendientes en Ubuntu.
 
@@ -283,3 +283,31 @@ php tests/multigroup_test.php
 ```
 
 Pruebas locales con datos ficticios: 24 comprobaciones del buzón, 25 HTTP de recepción y permisos, 124 HTTP funcionales anteriores y 38 de regresión de campañas/importación/multigrupo. El envío se simula; no se ha probado la entrega real de webhooks desde Resend ni la recuperación de cuerpos mediante una credencial real. La aceptación en Ubuntu, HTTPS y systemd sigue pendiente. Los webhooks de entrega, rebotes y quejas, el procesamiento IA y la descarga de adjuntos no forman parte de esta versión.
+
+
+## 3.9 — Prospección institucional, consentimiento verificable y favicon
+
+- **Primer contacto:** listado por curso y grupo de colaboraciones, con búsqueda, situación de comunicación, próxima gestión y acceso a la ficha. Las entidades importadas sin autorización permanecen disponibles para la gestión individual, llamada y registro de contacto. No pasan automáticamente a campañas.
+- **Ficha de empresa → Primer contacto institucional individual:** permite preparar un correo en el cliente de correo del centro o, si se configura SMTP, editar y confirmar un único envío. Se registra la fecha, dirección, asunto y resultado del intento SMTP en el historial de la colaboración. El enlace mailto solo abre un borrador; registre manualmente el resultado. No hay envío masivo por SMTP ni uso de SMTP como alternativa automática si Resend rechaza una campaña.
+- **Configuración → Correo institucional SMTP:** habilitación opcional, servidor, puerto 587 con STARTTLS o 465 con TLS directo, usuario, clave, remitente y Reply-To. Se admite autenticación LOGIN tras establecer TLS con certificado verificable; todavía no se admite OAuth2. Use únicamente una cuenta y un proveedor autorizados por el centro para esta finalidad y confirme sus normas de uso. La clave queda en almacenamiento privado sin cifrado adicional y no se devuelve al navegador. Pruebe el envío al administrador. Límite del contacto SMTP: 10 intentos diarios y uno por dirección cada día; cada intento exige revisión y confirmación. Se excluyen bajas globales y colaboraciones rechazadas. La aceptación SMTP no demuestra entrega. No se reintenta automáticamente.
+- **Formulario público:** active el formulario desde Configuración con el aviso de privacidad aprobado por el centro y Resend y URL pública correctamente configurados. La manifestación de interés no requiere cuenta ni consentimiento de campañas. El enlace de verificación caduca en 24 horas, es de un solo uso y solo su hash queda en el almacenamiento. La empresa que quiera recibir futuras comunicaciones debe marcar la opción voluntaria al solicitar y confirmarla de nuevo al verificar. Acceder por GET al enlace no confirma nada. Se limita la frecuencia de solicitudes. Las solicitudes sin verificar no crean empresas.
+- **Solicitudes de interés:** el administrador revisa la identidad y aprueba o descarta las solicitudes verificadas. Puede vincular una ficha existente si contiene el correo verificado, o crear una nueva si no hay coincidencias. Si existe un duplicado, compruebe y actualice la ficha antes de vincular. La aprobación no crea cuentas, no confirma plazas ni sustituye datos de una ficha anterior. Las colaboraciones en fase de captación pasan a Interesada y las nuevas quedan con cero plazas confirmadas. La prueba de autorización se conserva con correo, texto aceptado, centro, curso, grupo, fecha de solicitud, verificación y aprobación. Cuando existe autorización expresa y no hay baja global, se registra el permiso de campañas automáticamente. La verificación de correo no acredita representación legal. Las bajas globales no se reactivan por este formulario. La prueba manual sigue disponible para autorizaciones reales obtenidas por otras vías.
+- Resend sigue siendo el canal de verificación, registro, campañas autorizadas, recordatorios y buzón. Si desea recibir las respuestas SMTP en el buzón empresarial, configure como Reply-To la dirección de recepción Resend, solo cuando esa dirección haya sido verificada y configurada; en caso contrario, consulte las respuestas en el buzón de correo institucional. El resumen diario incluye las solicitudes verificadas pendientes.
+- Favicon SVG propio en las pantallas públicas y privadas. El instalador y el actualizador incluyen prospecting.php y favicon.svg. Se preserva la configuración HTTPS y Cloudflare.
+
+### Verificación de la versión 3.9
+
+En un entorno de desarrollo aislado (PHP, Python 3, requests, beautifulsoup4 y openssl):
+
+```bash
+php -l prospecting.php
+python3 tests/prospecting_http.py .
+python3 tests/smtp_test.py .
+python3 tests/inbox_http.py .
+php tests/campaigns_test.php
+php tests/imports_test.php
+php tests/multigroup_test.php
+php tests/inbox_test.php
+```
+
+Pruebas locales con datos ficticios: 162 comprobaciones HTTP funcionales, 38 de campañas/importación/multigrupo, 24 del buzón, 25 HTTP de recepción y 6 de SMTP/MIME (255 en total, sin contar repeticiones del nuevo guion específico). El SMTP se ensayó contra un servidor local simulado con STARTTLS y TLS directo; también se comprobó rechazo de certificado no confiable e inyección de cabeceras. No se han enviado correos a empresas reales. Pendiente comprobar Resend y el proveedor SMTP institucional real, así como el despliegue en el servidor definitivo. Revise las normas institucionales y de privacidad con el centro antes de activar envíos.
