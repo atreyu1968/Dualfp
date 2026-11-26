@@ -6,9 +6,16 @@ if (( $# )); then
   [[ $# -eq 2 && "$1" == --seed && -f "$2" ]] || { echo 'Uso: sudo bash ubuntu/install.sh [--seed /ruta/directorio.json]'; exit 1; }
   SEED="$(realpath -- "$2")"
 fi
+exec 8>/run/lock/fpdual-update.lock
+flock -n 8 || { echo 'Ya hay una instalacion o actualizacion en curso.' >&2; exit 1; }
+if [[ -f /etc/fpdual/config.php && -f /var/www/fpdual/index.php && -f /usr/local/lib/fpdual/worker.php && -f /etc/systemd/system/fpdual-worker.service && -f /etc/systemd/system/fpdual-worker.timer && -f /etc/apache2/sites-available/fpdual.conf ]]; then
+  echo 'Instalacion existente: use el actualizador update.sh.' >&2; exit 1
+fi
 cd "$(dirname "$0")/.."
 apt-get update
 apt-get install -y apache2 libapache2-mod-php php-cli php-curl php-common ca-certificates unzip openssl
+for f in *.php ubuntu/*.php; do php -l "$f" >/dev/null; done
+php -r 'foreach (["curl","fileinfo","iconv","openssl","session"] as $ext) { if (!extension_loaded($ext)) { fwrite(STDERR,"Extension PHP ausente: $ext\n"); exit(1); } }'
 install -d -m 0755 /var/www/fpdual
 install -d -o www-data -g www-data -m 0700 /var/lib/fpdual
 install -d -o root -g www-data -m 0750 /etc/fpdual
@@ -55,18 +62,20 @@ if [[ ! -e /etc/apache2/sites-available/fpdual.conf ]]; then
   [[ "$HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]] || { echo 'Dominio inválido. Ejecute de nuevo el instalador.'; exit 1; }
   sed "s/empresas.example.invalid/$HOST/g" ubuntu/fpdual.conf > /etc/apache2/sites-available/fpdual.conf
   chmod 0644 /etc/apache2/sites-available/fpdual.conf
-  a2ensite fpdual.conf
-  apache2ctl configtest
-  systemctl reload apache2
-  if [[ ! -e /etc/apache2/sites-available/fpdual-le-ssl.conf ]]; then
-    read -r -p '¿Configurar ahora HTTPS con Let’s Encrypt? (s/N): ' TLS </dev/tty
-    if [[ "$TLS" =~ ^[sS]$ ]]; then
-      apt-get install -y certbot python3-certbot-apache
-      certbot --apache -d "$HOST" --redirect
-    fi
-  fi
 else
   echo 'Se mantiene la configuración Apache existente.'
+  HOST=$(awk '$1=="ServerName" {print $2; exit}' /etc/apache2/sites-available/fpdual.conf)
+fi
+a2ensite fpdual.conf
+apache2ctl configtest
+systemctl enable --now apache2
+systemctl reload apache2
+if [[ ! -e /etc/apache2/sites-available/fpdual-le-ssl.conf && -n "$HOST" ]]; then
+  read -r -p '¿Configurar ahora HTTPS con Let’s Encrypt? (s/N): ' TLS </dev/tty
+  if [[ "$TLS" =~ ^[sS]$ ]]; then
+    apt-get install -y certbot python3-certbot-apache
+    certbot --apache -d "$HOST" --redirect
+  fi
 fi
 install -d -m 0755 /usr/local/lib/fpdual
 install -m 0644 ubuntu/worker.php /usr/local/lib/fpdual/worker.php
