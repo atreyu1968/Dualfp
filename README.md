@@ -1,4 +1,4 @@
-# FP Dual Conecta A&G 3.10 · Ubuntu y Resend
+# FP Dual Conecta A&G 3.10.1 · Ubuntu y Resend
 
 **Revisión del 26/11/2026:** consulte [AUDITORIA.md](AUDITORIA.md) para conocer los resultados de las pruebas, las correcciones y las verificaciones pendientes en Ubuntu.
 
@@ -327,10 +327,18 @@ Esta versión sustituye el envío SMTP institucional por la preparación de mens
 
 Nuevo diseño adaptable en azul marino y verde, oferta formativa real del curso, calculadora de ayudas orientativas, llamadas a la colaboración, acceso privado y formulario de interés conservados. Conecta FP Canarias se presenta exclusivamente como portal de empleo para personas tituladas en FP y publicación de ofertas de trabajo, separado de las prácticas y de la FEOE. Introduzca su URL HTTPS real en Configuración; no se ha inventado una dirección. La sección se muestra cuando existe una URL configurada.
 
-El instalador y el actualizador intentan descargar dos fotografías de stock de Pexels a la carpeta web local. Son opcionales: si falla la descarga, el diseño utiliza fondos de respaldo y el proceso de actualización continúa. No se solicitan imágenes a terceros desde el navegador. Fuentes: [Tima Miroshnichenko, colaboración en oficina](https://www.pexels.com/photo/people-working-together-in-an-office-5439394/) y [Pavel Danilyuk, profesional con portátil](https://www.pexels.com/photo/woman-in-business-attire-carrying-a-laptop-8424941/), [licencia Pexels](https://www.pexels.com/license/). Fotografías ilustrativas, no representan al alumnado ni al personal del centro. La descarga real deberá verificarse en el servidor Ubuntu de destino.
+Desde la versión 3.10.1, las cuatro fotografías de stock están incluidas en el repositorio Git y forman parte de los archivos obligatorios de instalación y actualización. No se descargan imágenes de Pexels o Unsplash durante el despliegue. El instalador comprueba que son JPEG válidos antes de instalar y que los archivos instalados coinciden con los del repositorio. La portada utiliza imágenes HTML locales y una referencia versionada a CSS y JavaScript para evitar reutilizar recursos de la versión anterior. La portada conserva su diseño público incluso si hay sesión iniciada. Conecta FP Canarias aparece también sin URL configurada, pero el enlace de empleo solo se muestra si el administrador ha introducido su URL real. La versión aparece en el pie público.
+
+**Créditos de las fotografías de stock (Unsplash):** Headway, [colaboración en oficina](https://images.unsplash.com/photo-1552664730-d307ca884978); Mikael Kristenson, [aprendizaje en grupo](https://images.unsplash.com/photo-1523240795612-9a054b0db644); Mapbox, [equipo de trabajo](https://images.unsplash.com/photo-1522071820081-009f0129c71c); Wesley Tingey, [documentación](https://images.unsplash.com/photo-1450101499163-c8848c66ca85). [Licencia Unsplash](https://unsplash.com/license). Copias recuperadas de la distribución pública de [arjun-brocode/brocode-ai-development-website](https://github.com/arjun-brocode/brocode-ai-development-website/blob/main/CREDITS.md), verificadas por su identificador de blob y revisadas visualmente. Son fotografías ilustrativas y no representan al alumnado, empresas colaboradoras o personal del centro.
 
 ### Pruebas 3.10
 
 Se han ejecutado 35 comprobaciones HTTP específicas del preparador y portada, 154 funcionales generales adaptadas a la retirada de SMTP, 38 de campañas/importación/multigrupo, 24 del buzón y 25 HTTP del webhook, en un entorno local con datos ficticios (276 comprobaciones). No se enviaron correos reales. Prueba específica reproducible con Python 3, requests y beautifulsoup4: `python3 tests/mail_composer_http.py .`. Las pruebas históricas de SMTP directo de 3.9 ya no corresponden a la funcionalidad vigente. Pendiente comprobar la descarga de fotografías y el resultado en el navegador y servidor reales.
 
 La actualización se realiza con el procedimiento habitual de update.sh. No es necesario reinstalar ni importar de nuevo las empresas.
+
+## 3.10.1 — Corrección de la portada y fotografías
+
+Actualice mediante update.sh. No es necesario reinstalar ni cambiar Cloudflare o Resend. Debe aparecer el mensaje FOTOGRAFÍAS VERIFICADAS: 4/4 antes y después de copiar los archivos. Si falla una comprobación, el actualizador no debe anunciar la actualización como completada. Los cuatro archivos tienen nombres nuevos para evitar cachés de imágenes anteriores. Puede verificar en /var/www/fpdual con ls -lh landing-*-311.jpg y abrir /index.php?v=landing en una ventana privada. Compruebe que el pie muestra Versión 3.10.1. Si persiste una hoja de estilos antigua y la versión PHP es correcta, revise las reglas de caché de Cloudflare para style.css?v=3101.
+
+Pruebas: 46 comprobaciones HTTP locales del preparador y portada, incluidas 11 nuevas comprobaciones de sesión pública/administrador, referencia CSS versionada, cuatro recursos JPEG y versión visible. Se usaron JPEG de prueba para el ensayo HTTP y se verificaron por separado los cuatro blobs reales de Unsplash. Falta verificar el despliegue en el servidor definitivo y su caché. No se han modificado los datos ni las reglas de acceso.
