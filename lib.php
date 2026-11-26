@@ -90,6 +90,83 @@ function company_location_fallback(array $e):void{
 }
 function company_locations(array $e):void{
  company_web_link($e);
- if(!empty($e['sites'])){foreach($e['sites'] as $s){echo '<p><strong>'.h($s['name']).'</strong><small>'.h($s['detail']).'</small></p>';site_map_links($s['name'],$s['detail'],$e['zone']??'');}}
+ if(!empty($e['sites'])){foreach($e['sites'] as $s){echo '<p><strong>'.h($s['name']).'</strong><small>'.h($s['detail']).'</small></p>';site_map_links($s['name'],$s['detail'],site_municipality($s,$e['zone']??''));}}
  else company_location_fallback($e);
+}
+
+function location_norm(string $s):string{
+ $s=iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$s)?:$s;return trim(preg_replace('/[^a-z0-9]+/',' ',strtolower($s))??'');
+}
+function location_municipalities():array{
+ return ['Adeje','Arafo','Arico','Arona','Buenavista del Norte','Candelaria','El Rosario','El Sauzal','El Tanque','Fasnia','Garachico','Granadilla de Abona','Guía de Isora','Güímar','Icod de los Vinos','La Guancha','La Matanza de Acentejo','La Orotava','La Victoria de Acentejo','Los Realejos','Los Silos','Puerto de la Cruz','San Cristóbal de La Laguna','San Juan de la Rambla','San Miguel de Abona','Santa Cruz de Tenerife','Santa Úrsula','Santiago del Teide','Tacoronte','Tegueste','Vilaflor de Chasna'];
+}
+function location_matches(string $s):array{
+ $norm=' '.location_norm($s).' ';$out=[];
+ foreach(location_municipalities() as $m)if(str_contains($norm,' '.location_norm($m).' '))$out[]=$m;
+ if(preg_match('/\b(al cala|alcala|playa de san juan|fonsalia|tejina de isora|piedra hincada|himeche|ch io|chio)\b/',$norm))$out[]='Guía de Isora';
+ if(preg_match('/\b(los cristianos|el fraile|las galletas|valle de san lorenzo|buzanada|guaza|palm mar)\b/',$norm))$out[]='Arona';
+ if(preg_match('/\b(los gigantes|puerto de santiago|tamaimo|argen guicho|arguayo)\b/',$norm))$out[]='Santiago del Teide';
+ if(preg_match('/\b(costa adeje|torviscas|playa paraiso|callao salvaje)\b/',$norm))$out[]='Adeje';
+ return array_values(array_unique($out));
+}
+function site_municipality(array $s,string $zone=''):string{
+ $explicit=trim($s['municipality']??'');if($explicit!=='')return $explicit;
+ $found=location_matches($s['detail']??'');if(count($found)===1)return $found[0];if($found)return '';
+ $found=location_matches($zone);return count($found)===1?$found[0]:'';
+}
+function directory_locations(array $e):array{
+ $out=[];foreach($e['sites']??[] as $s)$out[]=['name'=>$s['name'],'detail'=>$s['detail'],'municipality'=>site_municipality($s,$e['zone']??'')];
+ if(!$out)$out[]=['name'=>$e['name'],'detail'=>trim(($e['address']??'').' '.($e['zone']??'')),'municipality'=>site_municipality(['detail'=>$e['address']??''],$e['zone']??'')];
+ return $out;
+}
+function directory_location_attrs(array $e):string{return h(json_encode(directory_locations($e),JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE));}
+function directory_location_filters():void{
+ echo '<label>Municipio del centro de trabajo<select id="municipality-filter"><option value="">Todos los municipios</option>';
+ foreach(location_municipalities() as $m)echo '<option>'.h($m).'</option>';
+ echo '<option value="__unknown">Sin municipio determinado</option></select></label><label>Centro de trabajo o lugar<input id="site-search" placeholder="Hotel, barrio, calle, polígono…"></label>';
+}
+function directory_location_summary(array $e):void{
+ foreach(directory_locations($e) as $s)echo '<small>'.h($s['name'].' · '.($s['municipality']?:'Municipio por confirmar').' · '.$s['detail']).'</small>';
+}
+// Only remove unused records. Historical references must not be broken.
+function company_link_delete_blockers(array $d,string $cid,string $eid):array{
+ $l=$d['links'][$cid][$eid]??null;if(!$l)return ['Colaboración inexistente'];
+ $reasons=[];
+ if(!empty($d['courses'][$cid]['closed']))$reasons[]='Curso cerrado';
+ if(!empty($l['confirmed'])||!empty($l['requested']))$reasons[]='Plazas solicitadas o confirmadas';
+ if(!empty($l['history'])||!empty($l['notes'])||!empty($l['next'])||!in_array($l['status']??'',['Identificada','Rechazada'],true))$reasons[]='Seguimiento o actividad registrada';
+ foreach($d['students'][$cid]??[] as $s)if(($s['company']??'')===$eid){$reasons[]='Alumnado asignado';break;}
+ foreach($d['docs']??[] as $doc)if($doc['course']===$cid&&$doc['company']===$eid){$reasons[]='Documentos asociados';break;}
+ foreach($d['campaigns']??[] as $campaign)if($campaign['course']===$cid&&isset($campaign['rows'][$eid])){$reasons[]='Campañas vinculadas';break;}
+ foreach($d['inbox']??[] as $m)if(($m['course']??'')===$cid&&($m['link']??'')===$eid){$reasons[]='Mensajes vinculados';break;}
+ return $reasons;
+}
+function company_delete_blockers(array $d,string $master):array{
+ $reasons=[];$e=$d['companies'][$master]??null;if(!$e)return ['Ficha inexistente'];
+ foreach($d['links']??[] as $cid=>$links)foreach($links as $id=>$l)if(master_id((string)$id)===$master)$reasons=array_merge($reasons,company_link_delete_blockers($d,(string)$cid,(string)$id));
+ foreach(['accounts','invites','interest_evidence'] as $k)foreach($d[$k]??[] as $v)if(($v['company']??'')===$master){$reasons[]='Cuenta, invitación o evidencia de interés asociada';break;}
+ if(!empty($d['campaign_permissions'][$master]))$reasons[]='Permisos de comunicaciones registrados';
+ foreach($d['students']??[] as $students)foreach($students as $s)if(($s['company']??'')!==''&&master_id($s['company'])===$master)$reasons[]='Alumnado asignado';
+ foreach($d['docs']??[] as $doc)if(master_id((string)$doc['company'])===$master)$reasons[]='Documentos asociados';
+ foreach($d['campaigns']??[] as $campaign)foreach($campaign['rows']??[] as $id=>$row)if(master_id((string)$id)===$master)$reasons[]='Campañas vinculadas';
+ foreach($d['inbox']??[] as $m)if(($m['link']??'')!==''&&master_id($m['link'])===$master)$reasons[]='Mensajes vinculados';
+ return array_values(array_unique($reasons));
+}
+function company_remove(array &$d,string $cid,string $eid,bool $global):void{
+ require_admin();editable($d,$cid);participation($d,$cid,$eid);$master=master_id($eid);company($d,$master);
+ $reasons=$global?company_delete_blockers($d,$master):company_link_delete_blockers($d,$cid,$eid);
+ if($reasons)throw new InvalidArgumentException(implode(' · ',$reasons));
+ if($global){
+  foreach($d['links'] as $c=>&$links)foreach(array_keys($links) as $id)if(master_id((string)$id)===$master)unset($links[$id]);unset($links);
+  unset($d['companies'][$master],$d['campaign_permissions'][$master]);audit($d,'Ficha empresarial eliminada',$cid,$master);
+ }else{unset($d['links'][$cid][$eid]);audit($d,'Colaboración empresarial desvinculada',$cid,$eid);}
+ unset($_SESSION['imp_batch'],$_SESSION['mc_batch']);
+}
+function company_remove_ui(array $d,string $cid,string $eid):void{
+ $e=company($d,$eid);echo '<section class="card"><h2>Eliminar o desvincular ficha</h2><p>Solo administración. La eliminación es irreversible en los datos activos; las copias de seguridad pueden conservarla. No se eliminan expedientes con actividad o referencias históricas.</p>';
+ foreach(['unlink_company'=>'Desvincular de este grupo','delete_company'=>'Eliminar ficha de todos los grupos y cursos'] as $action=>$label){
+  $reasons=$action==='delete_company'?company_delete_blockers($d,master_id($eid)):company_link_delete_blockers($d,$cid,$eid);
+  echo '<details><summary>'.h($label).'</summary>';if($reasons)echo '<p>No disponible: '.h(implode(' · ',$reasons)).'.</p>';
+  else{form_start($action,['c'=>$cid,'e'=>$eid]);input('current_password','Contraseña actual de administración','','password',true);echo '<label class="check"><input type="checkbox" name="confirm" value="yes" required> Confirmo: '.h($label.' · '.$e['name']).'.</label>';end_form($label);}echo '</details>';
+ }echo '</section>';
 }
