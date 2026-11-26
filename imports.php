@@ -23,13 +23,13 @@ function imp_matches(array $idx,array $e): array {
  foreach(imp_mail($e['emails']??'') as $mail)$ids+=$idx['mail'][$mail]??[];
  return array_keys($ids);
 }
-function imp_headers(): array {return ['name'=>'Empresa','nif'=>'NIF','zone'=>'Localidad','address'=>'Domicilio','sector'=>'Sector','contact'=>'Responsable','emails'=>'Correo','phone'=>'Teléfono','kind'=>'Tipo','web'=>'Web','map'=>'Mapa','route'=>'Cómo llegar','sites_json'=>'Centros de trabajo JSON'];}
+function imp_headers(): array {return ['name'=>'Empresa','nif'=>'NIF','zone'=>'Localidad','address'=>'Domicilio','sector'=>'Sector','contact'=>'Responsable','emails'=>'Correo','phone'=>'Teléfono','kind'=>'Tipo','web'=>'Web','map'=>'Mapa','route'=>'Cómo llegar','sites_json'=>'Centros de trabajo JSON','location_note'=>'Observación de ubicación','location_source'=>'Fuente principal'];}
 function imp_profile(array $raw): array {
  $e=[];foreach(imp_headers() as $k=>$label){$s=trim((string)($raw[$k]??''));$max=$k==='sites_json'?50000:(in_array($k,['web','map','route'],true)?1000:500);if(strlen($s)>$max)throw new InvalidArgumentException($label.': máximo '.$max.' bytes.');if(preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/',$s))throw new InvalidArgumentException($label.': caracteres no válidos.');$e[$k]=$s;}
  if($e['name']==='')throw new InvalidArgumentException('Nombre de empresa obligatorio.');
  $m=imp_mail($e['emails']);foreach($m as $mail)if(!filter_var($mail,FILTER_VALIDATE_EMAIL))throw new InvalidArgumentException('Correo inválido: '.$mail);$e['emails']=implode(', ',$m);
  $kind=imp_norm($e['kind']);$e['kind']=match($kind){'','empresa','empresa privada','privada','autonomo','cooperativa','pyme'=>'Empresa','organismo','organismo publico','publica','empresa publica','administracion publica','ayuntamiento'=>'Organismo','asociacion','fundacion'=>'Asociación',default=>throw new InvalidArgumentException('Tipo no reconocido: use Empresa, Organismo o Asociación.')};
- foreach(['web','map','route'] as $k)$e[$k]=location_url($e[$k]);
+ foreach(['web','map','route','location_source'] as $k)$e[$k]=location_url($e[$k]);
  $rawsites=$e['sites_json'];unset($e['sites_json']);$sites=[];
  if($rawsites!==''){
   $items=json_decode($rawsites,true);if(!is_array($items)||!array_is_list($items)||count($items)>100)throw new InvalidArgumentException('Centros de trabajo JSON: lista de hasta 100 centros.');
@@ -46,7 +46,7 @@ function imp_parse(string $data): array {
  $data=preg_replace('/^\xEF\xBB\xBF/','',$data)??$data;
  if(!preg_match('//u',$data)){$data=iconv('Windows-1252','UTF-8',$data);if($data===false)throw new InvalidArgumentException('Codificación no válida. Guarde en UTF-8.');}
  if(str_contains($data,"\0"))throw new InvalidArgumentException('Formato no válido. Use CSV o TSV de texto, no XLSX.');
- $aliases=['empresa'=>'name','nombre'=>'name','razon social'=>'name','name'=>'name','nif'=>'nif','cif'=>'nif','localidad'=>'zone','municipio'=>'zone','zona'=>'zone','zone'=>'zone','domicilio'=>'address','direccion'=>'address','address'=>'address','sector'=>'sector','actividad'=>'sector','responsable'=>'contact','contacto'=>'contact','contact'=>'contact','correo'=>'emails','correos'=>'emails','email'=>'emails','e mail'=>'emails','correo electronico'=>'emails','emails'=>'emails','telefono'=>'phone','phone'=>'phone','tipo'=>'kind','kind'=>'kind','web'=>'web','pagina web'=>'web','sitio web'=>'web','website'=>'web','mapa'=>'map','map'=>'map','como llegar'=>'route','ruta'=>'route','route'=>'route','centros de trabajo json'=>'sites_json','sites json'=>'sites_json'];
+ $aliases=['empresa'=>'name','nombre'=>'name','razon social'=>'name','name'=>'name','nif'=>'nif','cif'=>'nif','localidad'=>'zone','municipio'=>'zone','zona'=>'zone','zone'=>'zone','domicilio'=>'address','direccion'=>'address','address'=>'address','sector'=>'sector','actividad'=>'sector','responsable'=>'contact','contacto'=>'contact','contact'=>'contact','correo'=>'emails','correos'=>'emails','email'=>'emails','e mail'=>'emails','correo electronico'=>'emails','emails'=>'emails','telefono'=>'phone','phone'=>'phone','tipo'=>'kind','kind'=>'kind','web'=>'web','pagina web'=>'web','sitio web'=>'web','website'=>'web','mapa'=>'map','map'=>'map','como llegar'=>'route','ruta'=>'route','route'=>'route','centros de trabajo json'=>'sites_json','sites json'=>'sites_json','observacion de ubicacion'=>'location_note','fuente principal'=>'location_source'];
  $f=fopen('php://temp','r+');fwrite($f,$data);rewind($f);$best=[];$delimiter=';';$score=-1;
  foreach(["\t",';',','] as $del){rewind($f);$header=fgetcsv($f,0,$del,'"','');$map=array_map(fn($x)=>$aliases[imp_norm((string)$x)]??'', $header?:[]);$s=count(array_filter($map));if(in_array('name',$map,true)&&$s>$score){$score=$s;$best=$map;$delimiter=$del;}}
  if($score<1)throw new InvalidArgumentException('Cabecera no reconocida. Incluya la columna Empresa o Razón social.');
@@ -61,7 +61,7 @@ function imp_parse(string $data): array {
 }
 function imp_link(string $group): array {return ['status'=>'Identificada','requested'=>0,'confirmed'=>0,'group'=>$group,'notes'=>'','next'=>'','history'=>[],'snapshot'=>null];}
 function imp_enrich(array $old,array $new,string $id):array{
- $delta=[];foreach(['web','map','route','address'] as $k)if(empty($old[$k])&&!empty($new[$k]))$delta[$k]=$new[$k];
+ $delta=[];foreach(['web','map','route','address','location_note','location_source'] as $k)if(empty($old[$k])&&!empty($new[$k]))$delta[$k]=$new[$k];
  $existing=$old['sites']??[];$names=[];foreach($existing as $sid=>$site)$names[imp_norm($site['name']??'')][]=$sid;
  $changes=[];$add=[];foreach($new['sites']??[] as $site){$name=imp_norm($site['name']);$matches=$names[$name]??[];
   if(count($matches)>1)continue;
