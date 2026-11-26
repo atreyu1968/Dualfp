@@ -24,6 +24,12 @@ cleanup() {
   if (( MAINT )); then
     if (( rc != 0 && MUTATING )); then
       echo "Error en actualizacion. Restaurando archivos de aplicacion desde $BACKUP" >&2
+      # Puede haber arrancado Apache antes de fallar la activacion del temporizador.
+      if ! systemctl stop fpdual-worker.timer fpdual-worker.service apache2; then
+        echo 'No se pudieron detener los servicios; no se sustituira codigo en caliente. Restaure desde la copia en mantenimiento.' >&2
+        rm -rf -- "$WORK"
+        exit 1
+      fi
       tar -xzf "$BACKUP" -C / var/www/fpdual usr/local/lib/fpdual etc/systemd/system/fpdual-worker.service etc/systemd/system/fpdual-worker.timer
       if (( $? != 0 )); then
         echo 'Fallo de restauracion. Servicios detenidos; revise la copia privada.' >&2
@@ -91,10 +97,10 @@ for f in /var/www/fpdual/*.php /usr/local/lib/fpdual/worker.php; do php -l "$f" 
 apache2ctl configtest
 systemctl daemon-reload
 # No se modifican datos ni configuracion privada. Se restaura el estado anterior de servicios.
-MUTATING=0
 if (( APACHE )); then systemctl start apache2; fi
 if (( TIMER )); then systemctl start fpdual-worker.timer; fi
-MAINT=0
 printf '%s\n' "$REV" >/usr/local/lib/fpdual/revision
+MUTATING=0
+MAINT=0
 echo "Actualizacion completada: $REV"
 echo 'Compruebe el acceso HTTPS y el temporizador. No se han cambiado credenciales ni datos.'
