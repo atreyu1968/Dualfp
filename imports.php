@@ -62,7 +62,7 @@ function imp_parse(string $data): array {
 function imp_link(string $group): array {return ['status'=>'Identificada','requested'=>0,'confirmed'=>0,'group'=>$group,'notes'=>'','next'=>'','history'=>[],'snapshot'=>null];}
 function imp_enrich(array $old,array $new,string $id):array{
  $delta=[];foreach(['web','map','route','address'] as $k)if(empty($old[$k])&&!empty($new[$k]))$delta[$k]=$new[$k];
- $existing=$old['sites']??[];$names=[];foreach($existing as $id=>$site)$names[imp_norm($site['name']??'')][]=$id;
+ $existing=$old['sites']??[];$names=[];foreach($existing as $sid=>$site)$names[imp_norm($site['name']??'')][]=$sid;
  $changes=[];$add=[];foreach($new['sites']??[] as $site){$name=imp_norm($site['name']);$matches=$names[$name]??[];
   if(count($matches)>1)continue;
   if(!$matches){$key='site-'.hash('sha256',$id.'|'.$name);if(!isset($existing[$key]))$add[$key]=$site;continue;}
