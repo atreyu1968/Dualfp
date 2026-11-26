@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory() as td:
    for name in ['hero','formacion','empleo','ayudas']:
     r=requests.get(base.replace('index.php',f'landing-{name}-311.jpg'),timeout=5)
     check(r.status_code==200 and r.content.startswith(b'\xff\xd8'),name+' recurso JPEG servido')
-   check('Versión 3.10.2' in get(p,'landing').text,'versión visible')
+   check('Versión 3.11' in get(p,'landing').text,'versión visible')
    check(requests.get(base.replace('index.php','mail_composer.php'),timeout=5).status_code==404,'módulo no ejecutable directamente')
    log.seek(0);check(not any(x in log.read() for x in ('PHP Fatal error','PHP Warning','PHP Parse error')),'sin errores PHP')
   finally:srv.terminate();srv.wait(timeout=5)
