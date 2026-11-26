@@ -49,3 +49,7 @@ Pruebas locales: 124 HTTP funcionales anteriores, 38 regresiones de campañas/im
 ## Revisión 3.9 — Prospección y autorización
 
 162 comprobaciones HTTP funcionales; 38 regresiones de campañas, importación y multigrupo; 24 pruebas del buzón; 25 HTTP del webhook; 6 SMTP/MIME: 255 en total. Pruebas con datos ficticios y servidor SMTP local simulado, sin envíos externos. La manifestación de interés requiere verificación, la autorización de campañas es opcional, las bajas se conservan y ninguna solicitud confirma plazas. Se requiere comprobación con el proveedor SMTP real (LOGIN con TLS; OAuth2 no implementado), Resend y servidor de destino. Las credenciales se almacenan en directorio privado, sin cifrado adicional. Favicon SVG incorporado a instalación y actualización.
+
+## Revisión 3.10 — Correo institucional externo y portada
+
+35 pruebas HTTP del preparador y portada, 154 funcionales generales adaptadas, 38 de campañas/importación/multigrupo, 24 del buzón y 25 HTTP de recepción: 276 comprobaciones locales satisfactorias. Se verifican permisos, deduplicación, exclusión de bajas, TXT/CSV, registro de los envíos declarados, agenda, bloqueo del antiguo SMTP y diferenciación del portal de empleo. Se conserva Resend y no se envía correo desde el preparador. Pendiente comprobar fotografías Pexels y funcionamiento visual/despliegue en el servidor real. No se han enviado correos a empresas.

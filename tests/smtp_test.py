@@ -2,6 +2,9 @@ import base64, email, json, socket, ssl, subprocess, sys, tempfile, threading
 from email import policy
 from pathlib import Path
 root=Path(sys.argv[1]).resolve() if len(sys.argv)>1 else Path(__file__).resolve().parents[1]
+if 'function pc_smtp_send(' not in (root/'prospecting.php').read_text():
+    print('NO APLICA: SMTP institucional retirado desde 3.10; use tests/mail_composer_http.py')
+    sys.exit(0)
 count=0
 def check(ok,msg):
     global count
