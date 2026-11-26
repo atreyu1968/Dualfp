@@ -1,5 +1,7 @@
 # FP Dual Conecta A&G 3.6 · Ubuntu y Resend
 
+**Revisión del 26/11/2026:** consulte [AUDITORIA.md](AUDITORIA.md) para conocer los resultados de las pruebas, las correcciones y las verificaciones pendientes en Ubuntu.
+
 ## 1. Instalación desde cero: Ubuntu Server 24.04 LTS
 
 Estas instrucciones parten de un Ubuntu recién instalado, sin actualizar y sin Git, curl ni sudo. Se requiere una máquina virtual o contenedor LXC con systemd, conexión a Internet, DNS funcional, acceso a los repositorios de Ubuntu y al repositorio público de GitHub. Se recomienda 2 vCPU, 2 GB de RAM y 20–30 GB de disco. Use un servidor dedicado: la actualización detiene Apache, por lo que también afectaría a otros sitios alojados en él.
@@ -29,7 +31,7 @@ cat install-fpdual.sh
 bash install-fpdual.sh
 ```
 
-El instalador descarga la rama main, comprueba los archivos e instala Apache, PHP y las dependencias. Solicitará un correo de administrador, contraseña de 14–72 bytes (se solicita dos veces), dominio sin https:// y si desea configurar Let's Encrypt. No solicita la API key de Resend; se configura más tarde desde el navegador. Si ya existe una instalación, use el actualizador del apartado 2, no repita el instalador inicial.
+El instalador descarga la rama main, comprueba los archivos e instala Apache, PHP y las dependencias. Solicitará un correo de administrador, contraseña de 14–72 bytes (se solicita dos veces), dominio sin https:// y si desea configurar Let's Encrypt. No solicita la API key de Resend; se configura más tarde desde el navegador. Si ya existe una instalación completa, use el actualizador del apartado 2. Si la primera instalación se interrumpió antes de preparar todos los archivos de Apache y systemd, vuelva a ejecutar el instalador: conserva el administrador existente. Si ya están presentes todos los archivos pero falló la activación del temporizador, compruebe Apache y ejecute systemctl daemon-reload y systemctl enable --now fpdual-worker.timer tras resolver el error.
 
 Alternativa con Git, después del paso 2:
 
@@ -82,7 +84,7 @@ cat update-fpdual.sh
 bash update-fpdual.sh
 ```
 
-Confirme la ventana de mantenimiento con s. El actualizador obtiene la revisión de main, comprueba los archivos y la sintaxis PHP, detiene temporalmente el temporizador, espera a que termine el trabajador y detiene Apache. Realiza una copia comprimida privada y verifica que puede leerse antes de sustituir los archivos. Conserva /etc/fpdual y /var/lib/fpdual, incluyendo credenciales, Resend, alumnado, empresas, expedientes, campañas y permisos. Conserva también la configuración del virtual host. No realiza una actualización general de Ubuntu. Si falla al copiar o validar los archivos, intenta restaurar el código y los archivos del trabajador desde la copia; si falla la recuperación, deja los servicios detenidos y avisa. Si falla al reiniciar un servicio, revise los logs: no se restaura automáticamente el estado de datos. El script está adaptado a la estructura 3.6 actual y deberá revisarse cuando se añadan dependencias, archivos o migraciones en futuras versiones.
+Confirme la ventana de mantenimiento con s. El actualizador obtiene la revisión de main, comprueba los archivos y la sintaxis PHP, detiene temporalmente el temporizador, espera a que termine el trabajador y detiene Apache. Realiza una copia comprimida privada y verifica que puede leerse antes de sustituir los archivos. Conserva /etc/fpdual y /var/lib/fpdual, incluyendo credenciales, Resend, alumnado, empresas, expedientes, campañas y permisos. Conserva también la configuración del virtual host. No realiza una actualización general de Ubuntu. Si falla al copiar o validar los archivos, intenta restaurar el código y los archivos del trabajador desde la copia; si falla la recuperación, deja los servicios detenidos y avisa. Si falla al reiniciar un servicio tras sustituir el código, el actualizador también intenta detener los servicios y recuperar el código anterior; no se restaura automáticamente el estado de datos. El script está adaptado a la estructura 3.6 actual y deberá revisarse cuando se añadan dependencias, archivos o migraciones en futuras versiones.
 
 Las copias están en /var/backups/fpdual/ (acceso root). Incluyen datos personales y secretos: no compartir ni publicar. Controle el espacio libre y conserve copias externas seguras. El actualizador no elimina copias antiguas ni habilita servicios que estuvieran detenidos. Compruebe la instalación al terminar:
 
