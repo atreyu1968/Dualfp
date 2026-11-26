@@ -62,8 +62,8 @@ function imp_parse(string $data): array {
 function imp_link(string $group): array {return ['status'=>'Identificada','requested'=>0,'confirmed'=>0,'group'=>$group,'notes'=>'','next'=>'','history'=>[],'snapshot'=>null];}
 function imp_enrichment(array $old,array $new):array{
  $patch=[];if(empty($old['website'])&&!empty($new['website']))$patch['website']=$new['website'];
- $known=[];foreach($old['sites']??[] as $s)$known[imp_norm($s['name']).'|'.imp_norm($s['detail'])]=true;
- foreach($new['sites']??[] as $id=>$s){$key=imp_norm($s['name']).'|'.imp_norm($s['detail']);if(!isset($known[$key])){$patch['sites'][$id]=$s;$known[$key]=true;}}
+ $known=[];foreach($old['sites']??[] as $s)$known[imp_norm($s['name'])]=true;
+ foreach($new['sites']??[] as $id=>$s){$key=imp_norm($s['name']);if(!isset($known[$key])){$patch['sites'][$id]=$s;$known[$key]=true;}}
  return $patch;
 }
 function imp_merge_enrichment(array &$old,array $patch):void{
@@ -72,7 +72,7 @@ function imp_merge_enrichment(array &$old,array $patch):void{
 }
 function imp_plan(array $d,string $cid,string $gid,array $rows): array {
  $idx=imp_index($d['companies']);$companies=$d['companies'];$links=$d['links'][$cid]??[];$out=[];
- foreach($rows as $row){$r=['row'=>$row['row'],'name'=>$row['profile']['name']??$row['name']??'','zone'=>$row['profile']['zone']??'','email'=>$row['profile']['emails']??'','action'=>'error','id'=>'','note'=>$row['error']??''];if(isset($row['error'])){$out[]=$r;continue;}
+ foreach($rows as $row){$r=['row'=>$row['row'],'name'=>$row['profile']['name']??$row['name']??'','zone'=>$row['profile']['zone']??'','email'=>$row['profile']['emails']??'','web'=>$row['profile']['website']??'','sites'=>count($row['profile']['sites']??[]),'action'=>'error','id'=>'','note'=>$row['error']??''];if(isset($row['error'])){$out[]=$r;continue;}
   $e=$row['profile'];$matches=imp_matches($idx,$e);
   if(count($matches)>1){$r['note']='Coincide con varias fichas. Revisar manualmente.';}
   elseif(count($matches)===1){$id=$matches[0];$r['id']=$id;$old=$companies[$id];$a=imp_nif($old['nif']??'');$b=imp_nif($e['nif']);$sameNif=$a!==''&&$a===$b;$sameName=imp_norm($old['name'])===imp_norm($e['name']);$sameZone=imp_norm($old['zone'])===imp_norm($e['zone']);
@@ -107,7 +107,7 @@ function imp_ui(array $d,string $cid,array $gs,bool $ed): void {
  if(!$ed||!$gs){echo '<p>Seleccione un curso abierto con un grupo configurado.</p></section>';return;}
  form_start('imp_preview',['c'=>$cid],true);select_field('group','Grupo de destino',$gs);echo '<label>Archivo CSV o TSV<input type="file" name="csvfile" accept=".csv,.tsv,.txt,text/csv,text/plain"></label>';area('paste','O pegar una tabla con cabecera');end_form('Validar y ver vista previa');echo '</section>';
  $b=$_SESSION['imp_batch']??null;if(!$b||$b['course']!==$cid||$b['expires']<time())return;
- $counts=array_count_values(array_column($b['plan'],'action'));echo '<section class="card"><h2>Vista previa · '.h($gs[$b['group']]??'Grupo').'</h2><p>'.h(($counts['create']??0).' nuevas · '.($counts['link']??0).' reutilizadas · ' .($counts['enrich']??0).' ampliadas · '.($counts['skip']??0).' duplicadas · '.($counts['error']??0).' incidencias').'</p><div class="scroll"><table><thead><tr><th>Registro</th><th>Empresa</th><th>Localidad / correo</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>';
- foreach($b['plan'] as $r){echo '<tr><td>'.h($r['row']).'</td><td>'.h($r['name']).'</td><td>'.h($r['zone']).'<small>'.h($r['email']).'</small></td><td>'.h(['create'=>'Alta','link'=>'Vincular','skip'=>'Omitir','enrich'=>'Ampliar','error'=>'Revisar'][$r['action']]).'</td><td>'.h($r['note']).'</td></tr>';}
+ $counts=array_count_values(array_column($b['plan'],'action'));echo '<section class="card"><h2>Vista previa · '.h($gs[$b['group']]??'Grupo').'</h2><p>'.h(($counts['create']??0).' nuevas · '.($counts['link']??0).' reutilizadas · ' .($counts['enrich']??0).' ampliadas · '.($counts['skip']??0).' duplicadas · '.($counts['error']??0).' incidencias').'</p><div class="scroll"><table><thead><tr><th>Registro</th><th>Empresa</th><th>Localidad / correo</th><th>Web / centros</th><th>Acción</th><th>Detalle</th></tr></thead><tbody>';
+ foreach($b['plan'] as $r){echo '<tr><td>'.h($r['row']).'</td><td>'.h($r['name']).'</td><td>'.h($r['zone']).'<small>'.h($r['email']).'</small></td><td>'.h($r['web']?:'—').'<small>'.h($r['sites']).' centros</small></td><td>'.h(['create'=>'Alta','link'=>'Vincular','skip'=>'Omitir','enrich'=>'Ampliar','error'=>'Revisar'][$r['action']]).'</td><td>'.h($r['note']).'</td></tr>';}
  echo '</tbody></table></div>';if(($counts['create']??0)+($counts['link']??0)+($counts['enrich']??0)>0){form_start('imp_commit',['c'=>$cid,'group'=>$b['group'],'batch'=>$b['token']]);end_form('Confirmar importación de filas válidas');}echo '<p>Las filas con incidencias y los duplicados no se importarán. La vista previa caduca en 30 minutos.</p></section>';
 }
