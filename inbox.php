@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+if(realpath($_SERVER['SCRIPT_FILENAME']??'')===__FILE__){http_response_code(404);exit;}
 // Included only by auth.php. All content is treated as untrusted text.
 function ib_cut(string $s,int $max):string {
  $s=substr($s,0,$max);while($s!==''&&!preg_match('//u',$s))$s=substr($s,0,-1);return $s;
@@ -28,7 +29,7 @@ function ib_ingest(array &$d,array $event):int {
  $x=$event['data']??null;if(!is_array($x)||!ib_valid_id($x['email_id']??null)||!is_array($x['to']??null))return 400;
  $id=strtolower($x['email_id']);$to=array_map('ib_address',$x['to']);if(!in_array($cfg['address'],$to,true))return 200;
  if(isset($d['inbox'][$id])||isset($d['inbox_deleted'][$id]))return 200;
- if(count($d['inbox']??[])>=1000||count($d['inbox_deleted']??[])>=20000)return 503;
+ if(count($d['inbox']??[])>=500||count($d['inbox_deleted']??[])>=20000)return 503;
  $from=ib_address($x['from']??null);$subject=is_string($x['subject']??null)?ib_cut($x['subject'],500):'';
  $d['inbox'][$id]=['from'=>$from,'subject'=>$subject,'at'=>date(DATE_ATOM),'state'=>'new','fetch'=>'pending','attempts'=>0,'next'=>0,'body'=>'','dmarc'=>'unknown','attachments'=>[],'course'=>'','link'=>'','replies'=>[]];return 200;
 }
@@ -54,7 +55,7 @@ function ib_fetch_api(string $id,string $key):?array {
 function ib_store_body(array &$m,array $r):bool {
  if(ib_address($r['from']??null)!==$m['from'])return false;
  $text=$r['text']??null;if(!is_string($text)||$text==='')$text=is_string($r['html']??null)?html_entity_decode(strip_tags($r['html']),ENT_QUOTES|ENT_HTML5,'UTF-8'):'';
- $m['body']=ib_cut($text,48000);$m['truncated']=strlen($text)>strlen($m['body']);
+ $m['body']=ib_cut($text,24000);$m['truncated']=strlen($text)>strlen($m['body']);
  $m['dmarc']=in_array($r['authentication']['dmarc']??'',['pass','fail','gray'],true)?$r['authentication']['dmarc']:'unknown';
  $m['attachments']=[];foreach(array_slice(is_array($r['attachments']??null)?$r['attachments']:[],0,30) as $a)if(is_array($a)&&is_string($a['filename']??null))$m['attachments'][]=ib_cut($a['filename'],250);
  $m['fetch']='ready';return true;
@@ -68,7 +69,7 @@ function ib_tick(array &$d,string $dir):void {
  }
 }
 function ib_hold(array $d,string $mail,string $eid):bool {
- if(!$mail)return false;foreach($d['inbox']??[] as $m)if($m['state']==='new'&&$m['from']===$mail&&in_array(master_id($eid),ib_matching($d,$mail),true))return true;return false;
+ if(!$mail)return false;foreach($d['inbox']??[] as $m)if($m['state']==='new'&&$m['from']===$mail&&in_array($mail,camp_emails($d['companies'][master_id($eid)]??[]),true))return true;return false;
 }
 function ib_action(string $action,array &$d,array $cfg,string $dir):string {
  require_admin();$back='?v=inbox';
@@ -94,7 +95,7 @@ function ib_action(string $action,array &$d,array $cfg,string $dir):string {
  }
  if($action==='ib_reply'){
   if($m['state']!=='linked'||!$m['from']||$m['dmarc']!=='pass'||field('confirm')!=='yes'||!mail_ready($cfg))fail('Vincule y revise el mensaje autenticado antes de responder');
-  $body=field('body',10000);$subject=field('subject',180);if(!$body||!$subject||preg_match('/[\r\n]/',$subject))fail('Complete asunto y texto');
+  if(count($m['replies'])>=5||field('reply_revision')!==(string)count($m['replies']))fail('Límite de respuestas o formulario ya utilizado. Recargue el mensaje.');$body=field('body',10000);$subject=field('subject',180);if(!$body||!$subject||preg_match('/[\r\n]/',$subject))fail('Complete asunto y texto');
   $ic=ib_config($d);if(!$ic['enabled']||!$ic['address'])fail('Active el buzón antes de responder');
   $cfg['resend_reply_to']=$ic['address'];$rid=uid();$m['replies'][$rid]=['at'=>date(DATE_ATOM),'subject'=>$subject,'body'=>$body,'state'=>'uncertain'];save_db($dir,$d);
   $ok=resend_mail($cfg,$dir,$m['from'],$subject,$body,'inbox-'.$rid);$m['replies'][$rid]['state']=$ok?'sent':'uncertain';audit($d,'Respuesta manual al correo',$m['course'],$m['link']);flash($ok?'Respuesta aceptada por Resend.':'Resultado incierto: consulte Resend antes de reenviar.');return $back.'&id='.rawurlencode($id);
@@ -114,11 +115,11 @@ function ib_ui(array $d,array $cfg):void {
   if($m['attachments'])echo '<p>Adjuntos (solo nombres; consultar original en Resend): '.h(implode(', ',$m['attachments'])).'</p>';
   $match=ib_matching($d,$m['from']);echo '<p>Coincidencias del remitente (no acreditan identidad): '.h(implode(', ',array_map(fn($e)=>$d['companies'][$e]['name'],$match))?:'Ninguna').'</p>';
   if($m['state']!=='linked'){
-   foreach($d['courses'] as $cid=>$c){if($c['closed'])continue;$opts=[];foreach($d['links'][$cid]??[] as $eid=>$l)$opts[$eid]=collaboration_label($d,$cid,(string)$eid);if(!$opts)continue;echo '<details><summary>Vincular al curso '.h($c['name']).'</summary>';form_start('ib_link',['id'=>$id,'course'=>$cid]);select_field('link','Colaboración',$opts);area('note','Nota revisada para el tutor (no se copia el correo completo)','');end_form('Vincular respuesta');echo '</details>';}
+   foreach($d['courses'] as $cid=>$c){if($c['closed'])continue;$opts=[''=>'Seleccione una colaboración'];foreach($d['links'][$cid]??[] as $eid=>$l)$opts[$eid]=collaboration_label($d,$cid,(string)$eid);if(count($opts)<2)continue;echo '<details><summary>Vincular al curso '.h($c['name']).'</summary>';form_start('ib_link',['id'=>$id,'course'=>$cid]);select_field('link','Colaboración',$opts);area('note','Nota revisada para el tutor (no se copia el correo completo)','');end_form('Vincular respuesta');echo '</details>';}
    form_start($m['state']==='archived'?'ib_reopen':'ib_archive',['id'=>$id]);end_form($m['state']==='archived'?'Reabrir':'Archivar sin vincular');
   }else{
    echo '<p>Vinculado a: '.h(collaboration_label($d,$m['course'],$m['link'])).'</p>';
-   if($m['dmarc']==='pass'&&$ic['enabled']&&mail_ready($cfg)){form_start('ib_reply',['id'=>$id]);input('subject','Asunto',ib_cut('Re: '.$m['subject'],180));area('body','Respuesta manual','');echo '<label class="check"><input type="checkbox" name="confirm" value="yes" required> He comprobado el destinatario y el contenido.</label>';end_form('Enviar respuesta');}
+   if($m['dmarc']==='pass'&&$ic['enabled']&&mail_ready($cfg)&&count($m['replies'])<5){form_start('ib_reply',['id'=>$id,'reply_revision'=>(string)count($m['replies'])]);input('subject','Asunto',ib_cut('Re: '.$m['subject'],180));area('body','Respuesta manual','');echo '<label class="check"><input type="checkbox" name="confirm" value="yes" required> He comprobado el destinatario y el contenido.</label>';end_form('Enviar respuesta');}
    foreach($m['replies'] as $r)echo '<details><summary>'.h($r['at'].' · '.$r['state'].' · '.$r['subject']).'</summary><pre>'.h($r['body']).'</pre></details>';
   }
   form_start('ib_delete',['id'=>$id]);echo '<label class="check"><input type="checkbox" name="confirm" value="yes" required> Eliminar contenido local (no elimina el original en Resend ni el historial ya vinculado)</label>';end_form('Eliminar mensaje');echo '</section>';return;
