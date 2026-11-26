@@ -69,6 +69,7 @@ fi
 # En un servidor dedicado, FP Dual sustituye la página de bienvenida.
 # Si hay otros sitios o una configuración personalizada, se conservan.
 bash repair-apache.sh
+if ! bash ubuntu/landing-assets.sh; then echo 'Aviso: fotografías opcionales no instaladas.'; fi
 if [[ ! -e /etc/apache2/sites-available/fpdual-le-ssl.conf && -n "$HOST" ]]; then
   read -r -p '¿Configurar ahora HTTPS con Let’s Encrypt? (s/N): ' TLS </dev/tty
   if [[ "$TLS" =~ ^[sS]$ ]]; then
