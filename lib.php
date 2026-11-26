@@ -29,7 +29,7 @@ function area(string $k,string $label,$v=''): void {echo '<label>'.h($label).'<t
 function select_field(string $k,string $label,array $opts,$v=''): void {echo '<label>'.h($label).'<select name="'.h($k).'">';foreach($opts as $id=>$n)echo '<option value="'.h($id).'"'.((string)$id===(string)$v?' selected':'').'>'.h($n).'</option>';echo '</select></label>';}
 function groups(array $c): array {return array_map(fn($g)=>$g['name'],$c['groups']);}
 function count_assigned(array $d,string $cid,string $eid): int {return count(array_filter($d['students'][$cid]??[],fn($s)=>$s['company']===$eid));}
-function set_profile(array &$e): void {foreach(['name','zone','sector','emails','phone','contact','nif','address'] as $k)$e[$k]=field($k,500);if(!$e['name'])fail('Nombre obligatorio');$kind=field('kind');if(!in_array($kind,['Empresa','Organismo','Asociación'],true))fail('Tipo incorrecto');$e['kind']=$kind;}
+function set_profile(array &$e): void {foreach(['name','zone','sector','emails','phone','contact','nif','address'] as $k)$e[$k]=field($k,500);if(array_key_exists('website',$_POST)){$web=field('website',500);if($web&&!company_web_valid($web))fail('Web: introduzca una URL HTTP o HTTPS válida');$e['website']=$web;}if(!$e['name'])fail('Nombre obligatorio');$kind=field('kind');if(!in_array($kind,['Empresa','Organismo','Asociación'],true))fail('Tipo incorrecto');$e['kind']=$kind;}
 
 function ag_cycles(): array {return ['sa'=>'CFGB Servicios Administrativos','ga'=>'CFGM Gestión Administrativa','af'=>'CFGS Administración y Finanzas','ad'=>'CFGS Asistencia a la Dirección'];}
 function ag_activities(): array {return ['sa'=>'Archivo, digitalización, comunicación básica y apoyo de oficina.','ga'=>'Facturación, documentación comercial, contabilidad auxiliar, atención al cliente y apoyo administrativo.','af'=>'Gestión contable y financiera, fiscalidad, aprovisionamiento, tesorería y recursos humanos.','ad'=>'Organización de agendas, comunicación profesional, documentación, eventos y apoyo a dirección.'];}
@@ -65,4 +65,22 @@ function company_link_scope(array $d,string $cid,string $id): array {
 function collaboration_label(array $d,string $cid,string $id): string {
     $l=participation($d,$cid,$id);$e=$l['snapshot']??company($d,$id);
     return $e['name'].' · '.($d['courses'][$cid]['groups'][$l['group']]['name']??$l['group']);
+}
+
+function company_web_valid(string $url):bool {
+ if(strlen($url)>500||!filter_var($url,FILTER_VALIDATE_URL))return false;
+ $p=parse_url($url);return in_array(strtolower($p['scheme']??''),['http','https'],true)&&!empty($p['host'])&&!isset($p['user'])&&!isset($p['pass']);
+}
+function company_web_link(array $e):void{
+ $web=$e['website']??'';if(is_string($web)&&company_web_valid($web))echo '<a class="button secondary" href="'.h($web).'" target="_blank" rel="noopener noreferrer">Web oficial ↗</a>';
+}
+function site_map_links(string $name,string $detail,string $zone=''):void{
+ if(trim($detail)===''&&trim($zone)==='')return;
+ $q=rawurlencode(implode(', ',array_filter([$name,$detail,$zone,'Tenerife, España'])));
+ echo '<div class="actions location-links"><a class="button secondary" href="https://www.google.com/maps/search/?api=1&amp;query='.$q.'" target="_blank" rel="noopener noreferrer">Ver mapa ↗</a><a class="button secondary" href="https://www.google.com/maps/dir/?api=1&amp;destination='.$q.'" target="_blank" rel="noopener noreferrer">Cómo llegar ↗</a></div>';
+}
+function company_locations(array $e):void{
+ company_web_link($e);
+ if(!empty($e['sites'])){foreach($e['sites'] as $s){echo '<p><strong>'.h($s['name']).'</strong><small>'.h($s['detail']).'</small></p>';site_map_links($s['name'],$s['detail']);}}
+ elseif(!empty($e['address']))site_map_links($e['name'],$e['address'],$e['zone']??'');
 }
