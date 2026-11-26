@@ -241,6 +241,8 @@ La revisión local del código 3.7 incluye 124 comprobaciones HTTP, 21 de campa�
 
 ```bash
 php tests/inbox_test.php
+# En un entorno de desarrollo aislado con requests y beautifulsoup4:
+python3 tests/inbox_http.py .
 php tests/campaigns_test.php
 php tests/imports_test.php
 php tests/multigroup_test.php
