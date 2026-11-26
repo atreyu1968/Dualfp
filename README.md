@@ -1,4 +1,4 @@
-# FP Dual Conecta A&G 3.7 · Ubuntu y Resend
+# FP Dual Conecta A&G 3.8 · Ubuntu y Resend
 
 **Revisión del 26/11/2026:** consulte [AUDITORIA.md](AUDITORIA.md) para conocer los resultados de las pruebas, las correcciones y las verificaciones pendientes en Ubuntu.
 
@@ -213,3 +213,39 @@ php tests/multigroup_test.php
 ```
 
 La revisión local del código 3.7 incluye 124 comprobaciones HTTP, 21 de campañas/importación y 17 de colaboración multigrupo. Se han verificado las huellas de los archivos PHP contra el repositorio de desarrollo; las pruebas utilizan datos ficticios y correo simulado. No acredita la instalación definitiva en Ubuntu, el funcionamiento de TLS/DNS ni la entrega real mediante Resend.
+
+## 3.8 — Buzón empresarial Resend
+
+### Configuración inicial (solo administrador)
+
+1. Actualice desde GitHub con update.sh; para Ubuntu nuevo siga el apartado de instalación desde cero. El nuevo módulo se instala junto al código y reutiliza el trabajador systemd. La recepción está deshabilitada por defecto.
+2. En Resend, configure una dirección de recepción. Para probar sin tocar DNS, puede usar la dirección del dominio asignado por Resend (resend.app). Si dispone de correo institucional en su dominio principal, utilice un subdominio dedicado a recepción, por ejemplo respuestas.example.org. No sustituya los registros MX institucionales. Consulte https://resend.com/features/inbound y los registros DNS exactos que indique Resend para su dominio.
+3. En el panel de Resend, cree un webhook para el evento email.received con la URL HTTPS que muestra **Buzón empresarial → Configuración de recepción Resend**, de la forma https://SU-DOMINIO/index.php?v=inbound_webhook. Copie el secreto de firma whsec_ de ese webhook. Mantenga el reloj del servidor sincronizado: se rechazan firmas con una desviación superior a cinco minutos.
+4. Cree una API key independiente con acceso suficiente para GET /emails/receiving/:email_id. Una clave limitada exclusivamente a envío no permite recuperar mensajes. Si Resend requiere acceso completo, utilice una cuenta/proyecto dedicado, custodie la clave y rote/revoque cuando corresponda. Mantenga la clave de envío existente separada.
+5. Introduzca la dirección exacta de recepción, la clave de recepción y el secreto de firma en el panel, confirme con la contraseña actual y active la recepción. Los secretos no vuelven a mostrarse: dejar el campo vacío conserva el anterior; se pueden borrar ambas claves al desactivar el módulo. Se guardan en el almacenamiento privado de la aplicación, protegido mediante permisos de archivo; todavía no hay cifrado adicional de secretos.
+6. Envíe un mensaje de prueba a la dirección elegida. Consulte el registro de entregas del webhook en Resend: debe devolver HTTP 200 para un evento válido. En el buzón aparecerá primero la cabecera; el trabajador recupera después el texto mediante la API. Compruebe systemctl status fpdual-worker.timer y journalctl -u fpdual-worker.service -n 50 --no-pager. Si hay errores de recuperación, revise la clave y utilice Reintentar recuperación. Se realizan hasta cinco intentos con espera creciente, una recuperación por ciclo.
+7. Mientras la recepción esté activa, los nuevos correos de campañas usan como Reply-To esa dirección. Los correos enviados anteriormente no cambian. Las demás comunicaciones transaccionales conservan su Reply-To habitual.
+
+### Operación diaria
+
+- Bandejas Pendientes, Vinculados, Archivados y Todos. Se muestra remitente, asunto, fecha local de recepción, estado, texto y resultado DMARC comunicado por Resend. No se ejecuta HTML ni se cargan imágenes remotas.
+- Se sugieren empresas por coincidencia exacta del correo con el directorio. La asociación con una colaboración de curso y grupo se confirma manualmente mediante una nota revisada. El tutor verá esa nota en el seguimiento de su grupo, no el correo completo. No se concede acceso, se confirman plazas ni se cambian estados académicos automáticamente.
+- Los mensajes nuevos procedentes de una dirección registrada retienen el seguimiento automático pendiente a ese remitente. Vincular una respuesta añade historial y cancela el seguimiento anterior de esa colaboración mediante el control de historial existente. Archivar sin vincular o borrar libera la retención; otras colaboraciones pueden reanudar sus seguimientos. Revise las campañas si la respuesta afecta a más de un grupo.
+- Desde un mensaje vinculado y con DMARC pass se puede redactar y confirmar una respuesta manual. No hay envío automático por IA. La respuesta se envía al remitente mostrado, con asunto editable y Reply-To del buzón, y se registra su resultado. No hay garantía de agrupación en el mismo hilo ni de entrega efectiva. Si el resultado es incierto, compruebe Resend antes de reenviar.
+- El resumen diario incluye el número de mensajes pendientes, si se ha activado ese resumen. Los tutores y las empresas no tienen acceso directo al buzón administrativo.
+- Los adjuntos solo se enumeran por nombre: consulte el original en Resend y suba documentos revisados al expediente correspondiente. No se descargan ni ejecutan adjuntos automáticamente.
+- Límite local: 500 mensajes, 24.000 bytes de texto por mensaje, cinco respuestas manuales de hasta 10.000 bytes cada una por mensaje y 20.000 identificadores de mensajes eliminados. La API limita la descarga del cuerpo a 1 MiB. Si se alcanza el límite de almacenamiento, el webhook devuelve 503; revise las entregas y libere espacio. No se realiza borrado automático ni importación retroactiva del buzón. Borrar localmente no elimina el original en Resend, ni las notas ya vinculadas, ni las copias de seguridad.
+- Trate todos los mensajes como datos no confiables. La firma Svix acredita el transporte del evento, no la identidad del representante de empresa. No introduzca datos de alumnado en respuestas de captación; revise privacidad y conservación con el centro.
+
+### Pruebas
+
+```bash
+php tests/inbox_test.php
+# En un entorno de desarrollo aislado con requests y beautifulsoup4:
+python3 tests/inbox_http.py .
+php tests/campaigns_test.php
+php tests/imports_test.php
+php tests/multigroup_test.php
+```
+
+Pruebas locales con datos ficticios: 24 comprobaciones del buzón, 25 HTTP de recepción y permisos, 124 HTTP funcionales anteriores y 38 de regresión de campañas/importación/multigrupo. El envío se simula; no se ha probado la entrega real de webhooks desde Resend ni la recuperación de cuerpos mediante una credencial real. La aceptación en Ubuntu, HTTPS y systemd sigue pendiente. Los webhooks de entrega, rebotes y quejas, el procesamiento IA y la descarga de adjuntos no forman parte de esta versión.
