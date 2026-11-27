@@ -67,7 +67,9 @@ for(const btn of document.querySelectorAll('[data-copy]'))btn.addEventListener('
   $('dir-separator').addEventListener('change',refresh);
   $('dir-copy').addEventListener('click',async()=>{const el=$('dir-emails');try{await navigator.clipboard.writeText(el.value);$('dir-copy-status').textContent='Copiado. Pegue las direcciones en CCO.';}catch{el.focus();el.select();$('dir-copy-status').textContent='Pulse Ctrl+C para copiar.';}});
   const form=$('dir-trash-form');if(form)form.addEventListener('submit',e=>{const selected=ids();if(!selected.length||selected.length>1000||!confirm('¿Enviar '+selected.length+' empresas a la papelera del directorio general? Afecta a todos los cursos.')){e.preventDefault();return;}for(const x of form.querySelectorAll('[data-dir-id]'))x.remove();for(const id of selected){const x=document.createElement('input');x.type='hidden';x.name='selected[]';x.value=id;x.dataset.dirId='1';form.append(x);}});
-  for(const f of document.querySelectorAll('.dir-single-trash'))f.addEventListener('submit',e=>{if(!confirm('¿Enviar esta empresa a la papelera del directorio general? Afecta a todos los cursos.'))e.preventDefault();});
+
   refresh();
  }
 }
+
+for(const f of document.querySelectorAll('.dir-single-trash'))f.addEventListener('submit',e=>{if(!confirm('¿Enviar esta empresa a la papelera del directorio general? Afecta a todos los cursos.'))e.preventDefault();});
