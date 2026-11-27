@@ -37,3 +37,6 @@ for(const btn of document.querySelectorAll('[data-copy]'))btn.addEventListener('
  try{await navigator.clipboard.writeText(el.value);if(status)status.textContent='Copiado al portapapeles.';}
  catch{el.focus();el.select();if(status)status.textContent='Texto seleccionado. Pulse Ctrl+C para copiar.';}
 });
+
+// Individual record directory filters.
+{const table=document.getElementById('record-list');if(table){const q=document.getElementById('record-search'),g=document.getElementById('record-group'),st=document.getElementById('record-state'),count=document.getElementById('record-count');const rows=[...table.querySelectorAll('tbody tr')];const run=()=>{let n=0;for(const row of rows){row.hidden=!(directoryNorm(row.textContent).includes(directoryNorm(q?.value??''))&&(!g?.value||row.dataset.group===g.value)&&(!st?.value||row.dataset.state===st.value));if(!row.hidden)n++;}if(count)count.textContent=n+' de '+rows.length+' registros';};for(const el of [q,g,st])if(el)el.addEventListener(el.tagName==='SELECT'?'change':'input',run);run();}}
