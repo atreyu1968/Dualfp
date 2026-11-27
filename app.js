@@ -11,7 +11,7 @@ function directorySiteMatch(row){
  return loc.some(s=>(!m||(m==='__unknown'?!s.municipality:s.municipality===m))&&(!q||directoryNorm([s.name,s.detail,s.municipality].join(' ')).includes(q)));
 }
 if(search||status||municipality||siteSearch){
- const rows=[...document.querySelectorAll('#directory tbody tr, #teacher-directory > details[data-locations]')];
+ const rows=[...document.querySelectorAll('#directory tbody tr, #teacher-directory > [data-locations]')];
  const filter=()=>{let n=0;for(const row of rows){row.hidden=!(directoryNorm(row.textContent).includes(directoryNorm(search?.value??''))&&(!status?.value||row.dataset.status===status.value)&&directorySiteMatch(row));if(!row.hidden)n++;}
  const count=$('directory-count');if(count)count.textContent=n+' de '+rows.length+' colaboraciones';};
  for(const el of [search,status,municipality,siteSearch])if(el)el.addEventListener(el.tagName==='SELECT'?'change':'input',filter);filter();

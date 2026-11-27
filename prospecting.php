@@ -84,8 +84,8 @@ function pc_verify_ui(array $d):void{
 }
 function pc_interests_ui(array $d,string $cid):void{
  echo '<section class="card"><h2>Solicitudes de interés empresarial</h2><p>Las solicitudes se pueden aprobar tras verificación por correo o tras una revisión manual documentada. Solo la confirmación expresa por correo puede generar un permiso automático de campañas; las bajas globales se respetan.</p>';
- $n=0;foreach($d['interest_requests']??[] as $id=>$r){if($r['course']!==$cid||(!pc_reviewed($r)&&$r['expires']<time()))continue;$n++;
- echo '<details><summary>'.h($r['name'].' · '.$r['email'].' · '.(!empty($r['verified_at'])?'Correo verificado':(!empty($r['reviewed_at'])?'Revisada manualmente':(pc_manual_pending($r)?'Pendiente de revisión manual':'Pendiente de verificar')))).'</summary><p>'.h($r['contact'].' · '.$r['phone'].' · '.$r['zone'].' · '.($d['courses'][$cid]['groups'][$r['group']]['name']??'').' · '.$r['requested'].' plazas orientativas').'</p><p>'.h($r['notes']).'</p><p>Autorización: '.($r['optin']&&$r['verified_at']?'Confirmada': 'No confirmada').'</p>';
+ $selected=(string)($_GET['record']??'');$base='?v=interests&c='.rawurlencode($cid);if($selected!=='')echo '<a class="button secondary" href="'.h($base).'">← Volver a solicitudes</a>';$n=0;foreach($d['interest_requests']??[] as $id=>$r){if($r['course']!==$cid||(!pc_reviewed($r)&&$r['expires']<time()))continue;$n++;if($selected===''){echo '<div class="record-toolbar"><strong>'.h($r['name'].' · '.$r['email']).'</strong><a class="button secondary" href="'.h($base.'&record='.rawurlencode((string)$id)).'">Abrir ficha</a></div>';continue;}if((string)$id!==$selected)continue;
+ echo '<div class="record-card"><h2>'.h($r['name'].' · '.$r['email'].' · '.(!empty($r['verified_at'])?'Correo verificado':(!empty($r['reviewed_at'])?'Revisada manualmente':(pc_manual_pending($r)?'Pendiente de revisión manual':'Pendiente de verificar')))).'</h2><p>'.h($r['contact'].' · '.$r['phone'].' · '.$r['zone'].' · '.($d['courses'][$cid]['groups'][$r['group']]['name']??'').' · '.$r['requested'].' plazas orientativas').'</p><p>'.h($r['notes']).'</p><p>Autorización: '.($r['optin']&&$r['verified_at']?'Confirmada': 'No confirmada').'</p>';
  if(!pc_reviewed($r)&&!$d['courses'][$cid]['closed']){
  form_start('pc_manual_review',['id'=>$id]);area('review_note','Evidencia de contacto real (fecha, canal y persona o departamento)','');
  echo '<label class="check"><input type="checkbox" name="confirmed" value="yes" required> He contactado con la entidad y confirmado que la solicitud es auténtica. No concede autorización de campañas.</label>';end_form('Registrar revisión manual');
@@ -95,7 +95,7 @@ function pc_interests_ui(array $d,string $cid):void{
  $opts=[''=>'Crear ficha nueva (si no hay duplicados)'];foreach($d['companies'] as $eid=>$e)if(in_array($r['email'],camp_emails($e),true))$opts[$eid]=$e['name'].' · '.$e['zone'];
  form_start('pc_approve',['id'=>$id]);select_field('existing','Empresa (revise identidad)',$opts);select_field('kind','Tipo para alta nueva',['Empresa'=>'Empresa','Organismo'=>'Organismo','Asociación'=>'Asociación']);end_form('Aprobar solicitud');
  }
- form_start('pc_discard',['id'=>$id]);end_form('Descartar solicitud');echo '</details>';
+ form_start('pc_discard',['id'=>$id]);end_form('Descartar solicitud');echo '</div>';
  }if(!$n)echo '<p>No hay solicitudes pendientes en este curso.</p>';
  echo '<h3>Autorizaciones verificadas</h3>';foreach($d['interest_evidence']??[] as $id=>$r)if($r['course']===$cid&&$r['optin'])echo '<details><summary>'.h($r['email'].' · '.$r['verified_at']).'</summary><p>'.h($r['text']).'</p><p>'.h('Referencia: '.$id.' · '.$r['center'].' · '.(camp_allowed($d,$r['company'],$r['email'])?'Activa':'No activa')).'</p></details>';echo '</section>';
 }
