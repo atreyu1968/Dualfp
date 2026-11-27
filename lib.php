@@ -7,9 +7,17 @@ function fail(string $m,int $code=400): never {
  http_response_code($code);header('Content-Type: text/html; charset=UTF-8');header('Cache-Control: no-store');
  $role=$_SESSION['role']??'';$title=match($code){403=>'Acceso no autorizado',404=>'Página no encontrada',409=>'Operación no disponible',default=>$code>=500?'Servicio no disponible':'No se ha podido completar la operación'};
  $home=match($role){'admin'=>'dashboard','tutor'=>'teacher','company'=>'portal',default=>'login'};
- echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.h($title).' · FP Dual Conecta</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css?v=3131"></head><body class="error-ui"><header class="error-header"><a class="brand" href="index.php?v=landing"><span>FP</span><div>Dual Conecta · A&amp;G<small>Administración y Gestión</small></div></a></header><main class="error-main"><section class="error-card" aria-labelledby="error-title"><div class="error-number">'.h($code).'</div><p class="eyebrow">FP DUAL CONECTA</p><h1 id="error-title">'.h($title).'</h1><p>'.h($m).'</p>';
+ echo '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.h($title).' · FP Dual Conecta</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="style.css?v=3132"></head><body class="error-ui"><header class="error-header"><a class="brand" href="index.php?v=landing"><span>FP</span><div>Dual Conecta · A&amp;G<small>Administración y Gestión</small></div></a></header><main class="error-main"><section class="error-card" aria-labelledby="error-title"><div class="error-number">'.h($code).'</div><p class="eyebrow">FP DUAL CONECTA</p><h1 id="error-title">'.h($title).'</h1><p>'.h($m).'</p>';
  if($code===403)echo '<p class="muted">Compruebe que ha iniciado sesión con el perfil adecuado. Si necesita permisos adicionales, contacte con la administración del centro.</p>';
- echo '<div class="error-actions"><a class="button" href="index.php?v='.h($home).'">'.($role?'Volver a mi panel':'Iniciar sesión').'</a><a class="button secondary" href="index.php?v=landing">Página principal</a>';
+ // Return only to an allowlisted local screen; never replay a POST.
+ $action=is_string($_POST['action']??null)?$_POST['action']:'';
+ $routes=['teacher_invite'=>'teachers','teacher_grant'=>'teachers','student'=>'students','student_csv_import'=>'students','newcompany'=>'directory','linkcompany'=>'directory','admin_settings'=>'settings','mail_settings'=>'settings','settings'=>'settings','group'=>'courses','newcourse'=>'courses','camp_create'=>'campaigns'];
+ $target=$role==='admin'?($routes[$action]??''):'';
+ $courseId=is_string($_POST['c']??null)?$_POST['c']:'';
+ $returnUrl=$target!==''?'index.php?'.http_build_query(array_filter(['v'=>$target,'c'=>$courseId],fn($v)=>$v!=='')):'';
+ echo '<div class="error-actions">';
+ if($returnUrl!=='')echo '<a class="button" href="'.h($returnUrl).'">Volver a la gestión</a>';
+ echo '<a class="button'.($returnUrl!==''?' secondary':'').'" href="index.php?v='.h($home).'">'.($role?'Volver a mi panel':'Iniciar sesión').'</a><a class="button secondary" href="index.php?v=landing">Página principal</a>';
  if($role&&!empty($_SESSION['csrf']))echo '<form method="post" action="index.php">'.post_hidden('logout').'<button class="secondary" type="submit">Cerrar sesión</button></form>';
  echo '</div></section></main></body></html>';exit;
 }
