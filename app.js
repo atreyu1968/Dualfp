@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id);const amount=$('amount');if(amount){const calc=()=>{const hours=Math.min(2000,Math.max(0,Number($('hours').value)||0));const n=Math.min(100,Math.max(0,Math.floor(Number($('num').value)||0)));amount.textContent=(hours*n*Number(amount.dataset.rate)).toLocaleString('es-ES',{style:'currency',currency:'EUR'});};$('hours').addEventListener('input',calc);$('num').addEventListener('input',calc);calc();}
 const cs=$('course-switch');if(cs)cs.addEventListener('change',()=>{location.href='index.php?'+new URLSearchParams({v:cs.dataset.view,c:cs.value});});
 const search=$('search'),status=$('status-filter');
-const municipality=$('municipality-filter'),siteSearch=$('site-search');
+const municipality=$('municipality-filter'),siteSearch=$('site-search'),letter=$('dir-letter');
 function directoryNorm(s){return String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 function directorySiteMatch(row){
  if(!municipality&&!siteSearch)return true;
@@ -10,11 +10,11 @@ function directorySiteMatch(row){
  let loc=[];try{loc=JSON.parse(row.dataset.locations||'[]');}catch{return false;}
  return loc.some(s=>(!m||(m==='__unknown'?!s.municipality:s.municipality===m))&&(!q||directoryNorm([s.name,s.detail,s.municipality].join(' ')).includes(q)));
 }
-if(search||status||municipality||siteSearch){
+if(search||status||municipality||siteSearch||letter){
  const rows=[...document.querySelectorAll('#directory tbody tr, #teacher-directory > [data-locations]')];
- const filter=()=>{let n=0;for(const row of rows){row.hidden=!(directoryNorm(row.textContent).includes(directoryNorm(search?.value??''))&&(!status?.value||row.dataset.status===status.value)&&directorySiteMatch(row));if(!row.hidden)n++;}
- const count=$('directory-count');if(count)count.textContent=n+' de '+rows.length+' colaboraciones';};
- for(const el of [search,status,municipality,siteSearch])if(el)el.addEventListener(el.tagName==='SELECT'?'change':'input',filter);filter();
+ const filter=()=>{let n=0;for(const row of rows){row.hidden=!(directoryNorm(row.textContent).includes(directoryNorm(search?.value??''))&&(!status?.value||(row.dataset.status||'').split('|').includes(status.value))&&directorySiteMatch(row)&&(!letter?.value||(()=>{const first=(row.dataset.name||'').trim().toUpperCase().charAt(0);const normalized=first==='Ñ'?'Ñ':directoryNorm(first).toUpperCase();return letter.value==='#'?!/^[A-ZÑ]$/.test(normalized):normalized===letter.value;})()));if(!row.hidden)n++;}
+ const count=$('directory-count');if(count)count.textContent=n+' de '+rows.length+(letter?' empresas':' colaboraciones');};
+ for(const el of [search,status,municipality,siteSearch,letter])if(el)el.addEventListener(el.tagName==='SELECT'?'change':'input',filter);filter();
 }
 const menu=document.getElementById('menu-toggle');if(menu){menu.addEventListener('click',()=>document.body.classList.toggle('nav-open'));document.addEventListener('keydown',e=>{if(e.key==='Escape')document.body.classList.remove('nav-open')});document.querySelector('.shell')?.addEventListener('click',e=>{if(e.target!==menu&&document.body.classList.contains('nav-open'))document.body.classList.remove('nav-open')});}
 
@@ -63,7 +63,7 @@ for(const btn of document.querySelectorAll('[data-copy]'))btn.addEventListener('
   $('dir-select-all').addEventListener('click',()=>{checks().forEach(c=>c.checked=true);refresh();});
   $('dir-clear').addEventListener('click',()=>{checks().forEach(c=>c.checked=false);refresh();});
   for(const c of checks())c.addEventListener('change',()=>{checks().filter(x=>x.value===c.value).forEach(x=>x.checked=c.checked);refresh();});
-  for(const el of [search,status,municipality,siteSearch])if(el)el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{checks().filter(c=>c.closest('tr').hidden).forEach(c=>c.checked=false);refresh();});
+  for(const el of [search,status,municipality,siteSearch,letter])if(el)el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{checks().filter(c=>c.closest('tr').hidden).forEach(c=>c.checked=false);refresh();});
   $('dir-separator').addEventListener('change',refresh);
   $('dir-copy').addEventListener('click',async()=>{const el=$('dir-emails');try{await navigator.clipboard.writeText(el.value);$('dir-copy-status').textContent='Copiado. Pegue las direcciones en CCO.';}catch{el.focus();el.select();$('dir-copy-status').textContent='Pulse Ctrl+C para copiar.';}});
   const form=$('dir-trash-form');if(form)form.addEventListener('submit',e=>{const selected=ids();if(!selected.length||selected.length>1000||!confirm('¿Enviar '+selected.length+' empresas a la papelera del directorio general? Afecta a todos los cursos.')){e.preventDefault();return;}for(const x of form.querySelectorAll('[data-dir-id]'))x.remove();for(const id of selected){const x=document.createElement('input');x.type='hidden';x.name='selected[]';x.value=id;x.dataset.dirId='1';form.append(x);}});
