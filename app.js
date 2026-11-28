@@ -81,3 +81,5 @@ for(const f of document.querySelectorAll('.dir-single-trash'))f.addEventListener
 
 // Dependent location selectors scoped to their own form.
 document.querySelectorAll('.location-cascade').forEach(box=>{const cat=JSON.parse(box.dataset.catalogue||'{}'),m=box.querySelector('[name=municipality]'),l=box.querySelector('[name=locality]'),p=box.querySelector('[name=postal_code]');if(!m||!l||!p)return;function fill(sel,values,label){sel.replaceChildren(new Option(label,''),...values.map(v=>new Option(v,v)));}function postcodes(){const codes=cat[m.value]?.[l.value]||[];fill(p,codes,'Seleccione código postal');if(codes.length===1)p.value=codes[0];}m.addEventListener('change',()=>{fill(l,Object.keys(cat[m.value]||{}),'Seleccione localidad');postcodes();});l.addEventListener('change',postcodes);});
+
+(function(){const el=document.getElementById('top-role-select');if(!el||!el.form)return;const b=el.form.querySelector('.top-role-go');if(b)b.hidden=true;el.addEventListener('change',()=>el.form.requestSubmit());})();
