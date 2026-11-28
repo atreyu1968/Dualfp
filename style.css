@@ -57,4 +57,19 @@ tr.blocked-email>td{background:#fee2e2!important;color:#811d1d}tr.blocked-email>
 
 tr.needs-reactivation>td{background:#dbeafe!important;color:#1e40af}tr.needs-reactivation>td:first-child{box-shadow:inset 4px 0 #2563eb}tr.season-optout>td{background:#f3e8ff!important;color:#6b21a8}tr.season-optout>td:first-child{box-shadow:inset 4px 0 #9333ea}.reactivation-warning{display:block;color:#1e40af;font-weight:650}.season-warning{display:block;color:#6b21a8;font-weight:650}
 
-.top-course{display:flex;flex-direction:column;gap:3px;min-width:170px}.top-course small{font-size:11px;color:inherit}.top-course-form{display:flex;align-items:end;gap:5px;margin:0}.top-course-form label{display:flex;flex-direction:column;font-size:10px;color:inherit;margin:0}.top-course-form select{min-width:135px;padding:4px 8px;font-size:12px;color:#17233a;background:#fff}.top-course-form button{padding:5px 9px;font-size:12px}@media(max-width:850px){.topbar{flex-wrap:wrap;height:auto;min-height:64px}.top-actions{flex-wrap:wrap}.top-course{min-width:130px}.top-course-form select{min-width:115px}}
+
+/* Compact header: all controls share the same baseline. */
+.private-ui .topbar{box-sizing:border-box;flex-wrap:nowrap;align-items:center;gap:14px;height:var(--header-height);min-height:var(--header-height)}
+.private-ui .top-center{flex:1 1 0;min-width:0}
+.private-ui .top-course{display:flex;align-items:center;gap:10px;flex:0 0 auto;min-width:0;white-space:nowrap;margin-left:auto}
+.private-ui .top-course-current{display:flex;align-items:center;gap:5px;font-size:12px;color:#506678}
+.private-ui .top-course-current strong{color:#006d73;font-weight:750}
+.private-ui .top-course-form{display:flex;align-items:center;gap:6px;margin:0;padding:0}
+.private-ui .top-course-label{display:flex;align-items:center;gap:7px;margin:0;padding:0;font-size:12px;font-weight:650}
+.private-ui .top-course-label select{width:auto;min-width:0;max-width:210px;height:34px;margin:0;padding:4px 26px 4px 9px;font-size:12px;color:#173b55;background-color:white;border:1px solid #ccdce2;border-radius:7px}
+.private-ui .top-course-go{height:34px;margin:0;padding:0 10px;font-size:12px}
+.private-ui .top-actions{flex-wrap:nowrap;flex:0 0 auto;margin-left:0;gap:10px}
+.private-ui .top-logout{height:34px;margin:0;white-space:nowrap}
+@media(max-width:1100px){.private-ui .top-center{display:none}.private-ui .top-course{margin-left:auto}}
+@media(max-width:760px){.private-ui{--header-height:96px}.private-ui .topbar{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:42px 38px;gap:0 8px;padding:4px 12px}.private-ui .top-brand{grid-column:2;grid-row:1;min-width:0}.private-ui .top-brand img{max-width:100%;width:155px}.private-ui .top-actions{grid-column:3;grid-row:1;justify-self:end}.private-ui .topbar .mobile-menu{grid-column:1;grid-row:1}.private-ui .top-course{grid-column:1/-1;grid-row:2;justify-content:space-between;margin:0;width:100%;gap:8px}.private-ui .top-course-label select{max-width:44vw}.private-ui .top-course-current{font-size:11px}.private-ui .top-course-label{gap:4px}.private-ui .top-course-label>span{display:none}}
+@media(max-width:360px){.private-ui .top-course-current{gap:3px;font-size:10px}.private-ui .top-course-label select{font-size:11px;max-width:43vw}.private-ui .top-course-go{padding:0 6px}}
