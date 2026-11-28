@@ -2,7 +2,7 @@
 declare(strict_types=1);
 if(realpath($_SERVER['SCRIPT_FILENAME']??'')===__FILE__){http_response_code(404);exit;}
 function mc_rows(array $d,string $cid):array {
- $out=[];foreach($d['links'][$cid]??[] as $id=>$l){
+ $out=[];foreach(active_company_links($d,$cid) as $id=>$l){
   if($l['status']==='Rechazada')continue;$e=company($d,(string)$id);
   $m=array_values(array_filter(camp_emails($e),fn($v)=>!isset($d['campaign_optouts'][$v])));if(!$m)continue;
   $out[(string)$id]=['name'=>$e['name'],'kind'=>$e['kind'],'zone'=>$e['zone'],'sector'=>$e['sector'],'group'=>$l['group'],'status'=>$l['status'],'email'=>$m[0],'mails'=>$m,'pending'=>camp_status_ok($l)&&!$l['history'],'revision'=>count($l['history'])];
