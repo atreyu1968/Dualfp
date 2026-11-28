@@ -138,6 +138,7 @@ function ib_outbound_event(array &$d,array $event):int{
  }
  if(!in_array($type,['email.sent','email.delivered','email.delivery_delayed','email.bounced','email.complained','email.failed'],true))return 200;
  $id=$x['email_id']??null;if(!ib_valid_id($id))return 400;
+ $previous=$d['first_message_history'][$id]??null;if($previous&&in_array($type,['email.bounced','email.complained'],true)){$m=$previous['email'];$d['campaign_optouts'][$m]=date(DATE_ATOM);$d['campaign_block_reasons'][$m]=$type==='email.bounced'?'Rebote de correo':'Queja de correo no deseado';$d['first_message_history'][$id]['delivery']=$type;return 200;}
  foreach($d['first_contact']??[] as $eid=>$r){if(($r['provider_id']??'')!==$id)continue;
  $old=$r['delivery']??'';$terminal=['email.bounced','email.complained','email.failed'];
  if(in_array($old,$terminal,true)&&$type!=='email.complained')return 200;
