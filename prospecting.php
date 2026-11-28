@@ -35,7 +35,7 @@ function pc_submit(array &$d,array $cfg,string $dir):string{
  }
  $id=uid();$t=bin2hex(random_bytes(32));$r=['name'=>$name,'email'=>$mail,'course'=>$cid,'group'=>$g,'requested'=>integer('requested',100),'notes'=>field('notes',3000),'created'=>date(DATE_ATOM),'expires'=>time()+($auto?86400:30*86400),'token'=>$auto?hash('sha256',$t):'','verified_at'=>'','manual_review'=>!$auto,'optin'=>$auto&&field('campaign_optin')==='yes','consent_text'=>pc_consent(),'privacy_text'=>$d['settings']['privacy'],'center'=>$d['settings']['center']];
  foreach(['zone','sector','contact','phone'] as $k)$r[$k]=field($k);
- $d['interest_requests'][$id]=$r;save_db($dir,$d);
+ $r['origin_company']=pc_invite_match($d,field('invite',64),$mail,$cid);$d['interest_requests'][$id]=$r;save_db($dir,$d);
  if($auto&&!send_link($cfg,$dir,$mail,'Confirme su solicitud FEOE','Ha solicitado información sobre colaboración educativa. Confirme el correo mediante el enlace (24 horas). La autorización de campañas es opcional y se confirma en el siguiente paso.','interest_verify',$t)){$d['interest_requests'][$id]['manual_review']=true;$d['interest_requests'][$id]['expires']=time()+30*86400;$d['interest_requests'][$id]['optin']=false;unset($d['interest_requests'][$id]['token']);save_db($dir,$d);}
  flash($generic);return '?v=landing#interes';
 }
@@ -61,9 +61,9 @@ function pc_manual_review(array &$d):string{
 function pc_approve(array &$d):string{
  require_admin();$id=field('id');$r=$d['interest_requests'][$id]??null;if(!$r||!pc_reviewed($r))fail('Solicitud sin verificar o revisar');
  $cid=$r['course'];editable($d,$cid);if(!isset($d['courses'][$cid]['groups'][$r['group']]))fail('Grupo no disponible');
- $eid=field('existing');$e=['name'=>$r['name'],'nif'=>'','zone'=>$r['zone'],'sector'=>$r['sector'],'kind'=>field('kind'),'emails'=>$r['email'],'phone'=>$r['phone'],'contact'=>$r['contact'],'address'=>'','sites'=>[],'tutors'=>[]];
+ $eid=field('existing');if(!empty($r['origin_company'])&&$eid!==$r['origin_company'])fail('La solicitud tiene una ficha de origen identificada; revise esa ficha antes de aprobar',409);$e=['name'=>$r['name'],'nif'=>'','zone'=>$r['zone'],'sector'=>$r['sector'],'kind'=>field('kind'),'emails'=>$r['email'],'phone'=>$r['phone'],'contact'=>$r['contact'],'address'=>'','sites'=>[],'tutors'=>[]];
  if(!in_array($e['kind'],['Empresa','Organismo','Asociación'],true))fail('Tipo inválido');
- if($eid){$eid=master_id($eid);$e=company($d,$eid);if(!in_array($r['email'],camp_emails($e),true))fail('El correo declarado no figura en la ficha. Compruebe la identidad y actualice la ficha antes de vincular.');}
+ if($eid){$eid=master_id($eid);if(!company_active($d,$eid))fail('Empresa retirada',409);$e=company($d,$eid);if(!in_array($r['email'],camp_emails($e),true))fail('El correo declarado no figura en la ficha. Compruebe la identidad y actualice la ficha antes de vincular.');}
  else{if(imp_matches(imp_index($d['companies']),$e))fail('Posible empresa duplicada. Revise el directorio y vincule la ficha existente.');$eid=uid();$d['companies'][$eid]=$e;}
  $lid=group_link($d['links'][$cid]??[],$eid,$r['group']);
  if($lid===null){$lid=new_link_key($d['links'][$cid]??[],$eid,$r['group']);$l=imp_link($r['group']);$l['status']='Interesada';$l['requested']=$r['requested'];$d['links'][$cid][$lid]=$l;}
@@ -93,7 +93,7 @@ function pc_interests_ui(array $d,string $cid):void{
  if(!empty($r['reviewed_at']))echo '<p>Revisión manual: '.h($r['reviewed_at'].' · '.$r['review_note']).'</p>';
  if(pc_reviewed($r)&&!$d['courses'][$cid]['closed']){
  $opts=[''=>'Crear ficha nueva (si no hay duplicados)'];foreach($d['companies'] as $eid=>$e)if(company_active($d,(string)$eid)&&in_array($r['email'],camp_emails($e),true))$opts[$eid]=$e['name'].' · '.$e['zone'];
- form_start('pc_approve',['id'=>$id]);select_field('existing','Empresa (revise identidad)',$opts);select_field('kind','Tipo para alta nueva',['Empresa'=>'Empresa','Organismo'=>'Organismo','Asociación'=>'Asociación']);end_form('Aprobar solicitud');
+ form_start('pc_approve',['id'=>$id]);select_field('existing','Empresa (revise identidad)',$opts,$r['origin_company']??'');if(!empty($r['origin_company']))echo '<p>Ficha de origen identificada mediante invitación individual y coincidencia de correo.</p>';select_field('kind','Tipo para alta nueva',['Empresa'=>'Empresa','Organismo'=>'Organismo','Asociación'=>'Asociación']);end_form('Aprobar solicitud');
  }
  form_start('pc_discard',['id'=>$id]);end_form('Descartar solicitud');echo '</div>';
  }if(!$n)echo '<p>No hay solicitudes pendientes en este curso.</p>';
@@ -109,7 +109,7 @@ function pc_contact_ui(array $d,array $cfg,string $cid,string $eid):void{
  }
 }
 function pc_action(string $action,array &$d,array $cfg,string $dir,string $cid,string $eid):string{
- if($action==='pc_verify')return pc_verify($d);
+ if($action==='pc_verify')return pc_verify($d);if($action==='pc_first_send')return pc_first_send($d,$cfg,$dir,$cid,$eid);
  require_admin();
  if($action==='pc_manual_review')return pc_manual_review($d);
  if($action==='pc_approve')return pc_approve($d);
@@ -129,4 +129,44 @@ function pc_first_contacts_ui(array $d,string $cid):void{
  if(!$closed)a('mail_preparer','Preparar correo institucional',$cid,'','button');echo '<div class="metrics">';foreach($totals as $label=>$n)panel_metric($label,$n);echo '</div><div class="fields"><label>Buscar<input id="search" placeholder="Empresa, localidad, correo…"></label>';directory_location_filters();echo '<label>Situación<select id="status-filter"><option value="">Todas</option>';foreach($totals as $label=>$n)echo '<option>'.h($label).'</option>';echo '</select></label></div><p id="directory-count" role="status"></p><div class="scroll"><table id="directory"><thead><tr><th>Empresa</th><th>Grupo</th><th>Situación</th><th>Próximo contacto</th><th>Acción</th></tr></thead><tbody>';
  foreach($rows as [$eid,$e,$l,$status,$available]){echo '<tr data-locations="'.directory_location_attrs($e).'" data-status="'.h($status).'"><td>'.h($e['name']).'<small>'.h($e['zone'].' · '.$e['phone']).'</small><small>'.h(implode(', ',$available)).'</small>';directory_location_summary($e);echo '</td><td>'.h($c['groups'][$l['group']]['name']??'').'</td><td>'.h($status).'</td><td>'.h($l['next']).'</td><td>';a('company',$closed?'Consultar':'Abrir ficha y registrar contacto',$cid,(string)$eid);echo '</td></tr>';}
  echo '</tbody></table></div></section>';
+}
+
+/* One authorized invitation per company; independent of campaign consent. */
+function pc_invite_match(array $d,string $token,string $mail,string $cid):string{
+ if(!preg_match('/^[a-f0-9]{64}$/D',$token))return '';
+ $r=$d['first_invites'][hash('sha256',$token)]??null;
+ return $r&&($r['expires']??0)>=time()&&$r['course']===$cid&&$r['email']===$mail&&company_active($d,$r['company'])?$r['company']:'';
+}
+function pc_first_ui(array $d,array $cfg,string $cid,string $eid):void{
+ $eid=master_id($eid);if(!company_active($d,$eid))return;
+ $e=company($d,$eid);$r=$d['first_contact'][$eid]??[];
+ echo '<section class="card"><h3>Invitación individual personalizada por Resend</h3>';
+ if(!empty($r['state']))echo '<p>Estado: '.h($r['state'].' · '.($r['at']??'')).'</p>';
+ if(in_array($r['state']??'',['accepted','attempted','uncertain'],true)){echo '<p>No se permite repetir esta invitación. La autorización posterior se obtiene en el formulario.</p></section>';return;}
+ $mails=array_values(array_filter(camp_emails($e),fn($m)=>!isset($d['campaign_optouts'][$m])));
+ if(!$mails||!mail_ready($cfg)||!pc_open($d,$cfg)){echo '<p>Requiere correo válido, Resend configurado y formulario publicado.</p></section>';return;}
+ form_start('pc_first_send',['c'=>$cid,'e'=>$eid]);select_field('email','Destinatario',array_combine($mails,$mails));
+ echo '<label class="check"><input type="checkbox" name="confirm" value="yes" required> Confirmo que este destinatario ha autorizado expresamente recibir esta invitación individual. No autoriza comunicaciones posteriores.</label>';
+ end_form('Autorizar y enviar una invitación individual');echo '</section>';
+}
+function pc_first_send(array &$d,array $cfg,string $dir,string $cid,string $eid):string{
+ require_admin();editable($d,$cid);$eid=master_id($eid);
+ if(!company_active($d,$eid)||!mail_ready($cfg)||!pc_open($d,$cfg)||$cid!==$d['settings']['active']||field('confirm')!=='yes')fail('Invitación no autorizada o servicio no disponible',403);
+ $e=company($d,$eid);$mail=email('email');
+ if(!in_array($mail,camp_emails($e),true)||isset($d['campaign_optouts'][$mail])||in_array($d['first_contact'][$eid]['state']??'',['accepted','attempted','uncertain'],true))fail('Destinatario no disponible o invitación ya utilizada',409);
+ foreach(company_links($d,$cid,$eid) as $l)if(($l['status']??'')==='Rechazada')fail('Colaboración rechazada',409);
+ foreach($d['first_contact']??[] as $old)if(($old['email']??'')===$mail&&in_array($old['state']??'',['accepted','attempted','uncertain'],true))fail('Este correo ya recibió una invitación o tiene un envío pendiente de revisión',409);
+ $token=bin2hex(random_bytes(32));$hash=hash('sha256',$token);$url=rtrim($cfg['public_url'],'/').'/index.php?v=landing&invite='.$token.'#interes';
+ $key=match($e['kind']??'Empresa'){'Organismo'=>'organismo','Asociación'=>'asociacion',default=>'empresa'};
+ $t=mc_templates($d,$cfg,$cid)[$key];
+ $subject=$t['subject'];$body="A la atención de ".$e['name']."\n\n".$t['body'];
+ $body=str_replace(rtrim($cfg['public_url'],'/').'/index.php?v=landing#interes',$url,$body);
+ $body.="\n\nEnlace individual para manifestar su interés: ".$url."\nEste enlace no concede acceso privado ni confirma plazas.";
+ $d['first_invites'][$hash]=['company'=>$eid,'email'=>$mail,'course'=>$cid,'expires'=>time()+30*86400];
+ $d['first_contact'][$eid]=['email'=>$mail,'state'=>'attempted','at'=>date(DATE_ATOM),'authorized_by'=>'admin','scope'=>'one_invitation','reference'=>$hash];
+ audit($d,'Autorización individual de primer contacto confirmada',$cid,$eid);save_db($dir,$d);
+ $ok=resend_mail($cfg,$dir,$mail,$subject,$body,'first-'.hash('sha256',$eid.$mail));
+ $d['first_contact'][$eid]['state']=$ok?'accepted':'uncertain';audit($d,$ok?'Invitación individual aceptada por Resend':'Resultado de invitación incierto; no repetir automáticamente',$cid,$eid);
+ flash($ok?'Invitación aceptada por Resend. No autoriza campañas posteriores.':'Envío no confirmado. Revise Resend antes de cualquier nuevo contacto.');
+ return '?v=directory&mode=master&c='.rawurlencode($cid).'&e='.rawurlencode($eid);
 }
