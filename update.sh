@@ -92,6 +92,11 @@ tar -tzf "$BACKUP" >/dev/null
 echo "Copia privada: $BACKUP"
 MUTATING=1
 for f in "${FILES[@]}"; do install -o root -g root -m 0644 "$f" /var/www/fpdual/; done
+# Obtain the public reference catalogue without transferring any personal data.
+if wget -q --timeout=20 --tries=2 -O "$WORK/postal.csv" 'https://raw.githubusercontent.com/inigoflores/ds-codigos-postales-ine-es/master/data/codigos_postales_municipios_entidades.csv' && grep -q '^codigo_postal,municipio_id,municipio_nombre,' "$WORK/postal.csv"; then
+  { head -n 1 "$WORK/postal.csv"; grep -E '^38[0-9]{3},38[0-9]{3},' "$WORK/postal.csv" || true; } > "$WORK/postal-tenerife.csv"
+  if [[ $(wc -l < "$WORK/postal-tenerife.csv") -gt 100 ]]; then install -o root -g root -m 0644 "$WORK/postal-tenerife.csv" /var/www/fpdual/postal-tenerife.csv; else echo 'Aviso: catálogo postal incompleto; se conserva el anterior.'; fi
+else echo 'Aviso: no se pudo descargar el catálogo postal; se conserva el anterior.'; fi
 install -o root -g root -m 0644 ubuntu/worker.php /usr/local/lib/fpdual/worker.php
 install -o root -g root -m 0644 ubuntu/fpdual-worker.service ubuntu/fpdual-worker.timer /etc/systemd/system/
 for f in /var/www/fpdual/*.php /usr/local/lib/fpdual/worker.php; do php -l "$f" >/dev/null; done
