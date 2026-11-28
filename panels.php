@@ -1,6 +1,6 @@
 <?php
 if(!defined("FPDUAL_ENTRY")) {http_response_code(404);exit;}
-function tutor_groups(array $d,string $cid):array { $a=($_SESSION['role']??'')==='admin'?['grants'=>$d['admin_tutor_grants']??[]]:($d['accounts'][$_SESSION['account']??'']??[]);return array_intersect_key($d['courses'][$cid]['groups']??[],array_fill_keys($a['grants'][$cid]??[],true)); }
+function tutor_groups(array $d,string $cid):array { $a=(($_SESSION['role']??'')==='admin'||!empty($_SESSION['admin_tutor_mode']))?['grants'=>$d['admin_tutor_grants']??[]]:($d['accounts'][$_SESSION['account']??'']??[]);return array_intersect_key($d['courses'][$cid]['groups']??[],array_fill_keys($a['grants'][$cid]??[],true)); }
 function tutor_scope(array $d,string $cid,string $gid):void {if(!in_array($_SESSION['role']??'',['tutor','admin'],true)||!isset(tutor_groups($d,$cid)[$gid]))fail('Grupo no autorizado',403);}
 function tutor_company_scope(array $d,string $cid,string $eid):void { $l=participation($d,$cid,$eid);tutor_scope($d,$cid,$l['group']); }
 function panel_url(string $v,string $cid='',string $p='',string $g=''):string{return 'index.php?'.http_build_query(array_filter(['v'=>$v,'c'=>$cid,'p'=>$p,'g'=>$g],fn($x)=>$x!==''));}
@@ -31,4 +31,10 @@ function panel_course_options(array $d,string $role,bool $teaching=false):array{
 function panel_top_course(array $d,string $role,string $view,string $cid):void{
  $opts=panel_course_options($d,$role,$role==='admin'&&$view==='teacher');$active=$d['settings']['active'];$activeName=$d['courses'][$active]['name']??'Sin configurar';echo '<div class="top-course"><span class="top-course-current">Vigente <strong>'.h($activeName).'</strong></span>';
  if($opts){$dest=$role==='company'?'portal':(($role==='tutor'||$view==='teacher')?'teacher':'dashboard');echo '<form method="get" class="top-course-form"><input type="hidden" name="v" value="'.h($dest).'"><label class="top-course-label"><select name="c" id="top-course-select" aria-label="Curso de trabajo">';if(!isset($opts[$cid]))echo '<option value="" selected disabled>Seleccione curso</option>';foreach($opts as $id=>$name)echo '<option value="'.h($id).'"'.($id===$cid?' selected':'').'>'.h($name).($id===$active?' · Vigente':' · Histórico').'</option>';echo '</select></label><button class="secondary top-course-go" type="submit" aria-label="Cambiar curso">Ir</button></form>';}else echo '<small>Sin cursos autorizados</small>';echo '</div>';
+}
+
+function admin_has_tutor_groups(array $d):bool{foreach($d['admin_tutor_grants']??[] as $cid=>$ids)foreach($ids as $gid)if(isset($d['courses'][$cid]['groups'][$gid]))return true;return false;}
+function panel_role_switch(array $d,string $role):void{
+ if(($role==='admin'&&admin_has_tutor_groups($d))||($role==='tutor'&&!empty($_SESSION['admin_tutor_mode']))){echo '<form method="post" class="top-role-form">'.post_hidden('switch_role').'<select name="target_role" id="top-role-select" aria-label="Rol de trabajo"><option value="admin"'.($role==='admin'?' selected':'').'>Administrador</option><option value="tutor"'.($role==='tutor'?' selected':'').'>Tutor docente</option></select><button class="secondary top-role-go" type="submit">Cambiar</button></form>';return;}
+ echo '<span class="top-role">'.h(match($role){'admin'=>'Administrador','company'=>'Empresa colaboradora',default=>'Tutor docente'}).'</span>';
 }
