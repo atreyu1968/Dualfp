@@ -47,7 +47,7 @@ function area(string $k,string $label,$v=''): void {echo '<label>'.h($label).'<t
 function select_field(string $k,string $label,array $opts,$v=''): void {echo '<label>'.h($label).'<select name="'.h($k).'">';foreach($opts as $id=>$n)echo '<option value="'.h($id).'"'.((string)$id===(string)$v?' selected':'').'>'.h($n).'</option>';echo '</select></label>';}
 function groups(array $c): array {return array_map(fn($g)=>$g['name'],$c['groups']);}
 function count_assigned(array $d,string $cid,string $eid): int {return count(array_filter($d['students'][$cid]??[],fn($s)=>$s['company']===$eid));}
-function set_profile(array &$e): void {foreach(['name','zone','sector','emails','phone','contact','nif','address'] as $k)$e[$k]=field($k,500);if(array_key_exists('website',$_POST)){$web=field('website',500);if($web&&!company_web_valid($web))fail('Web: introduzca una URL HTTP o HTTPS válida');$e['website']=$web;}foreach(['map','route','location_source'] as $k)if(array_key_exists($k,$_POST)){$v=field($k,1000);if($v&&!location_safe_url($v))fail('URL de ubicación inválida');$e[$k]=$v;}if(array_key_exists('location_note',$_POST))$e['location_note']=field('location_note',500);if(!$e['name'])fail('Nombre obligatorio');$kind=field('kind');if(!in_array($kind,['Empresa','Organismo','Asociación'],true))fail('Tipo incorrecto');$e['kind']=$kind;}
+function set_profile(array &$e): void {foreach(['name','zone','sector','emails','phone','contact','nif','address'] as $k)$e[$k]=field($k,500);if(array_key_exists('website',$_POST)){$web=field('website',500);if($web&&!company_web_valid($web))fail('Web: introduzca una URL HTTP o HTTPS válida');$e['website']=$web;}foreach(['map','route','location_source'] as $k)if(array_key_exists($k,$_POST)){$v=field($k,1000);if($v&&!location_safe_url($v))fail('URL de ubicación inválida');$e[$k]=$v;}if(array_key_exists('location_note',$_POST))$e['location_note']=field('location_note',500);if(array_key_exists('municipality',$_POST)){$v=location_post($e);$e=array_replace($e,$v);if($v['municipality']||$v['locality'])$e['zone']=implode(' · ',array_filter([$v['municipality'],$v['locality']]));}if(!$e['name'])fail('Nombre obligatorio');$kind=field('kind');if(!in_array($kind,['Empresa','Organismo','Asociación'],true))fail('Tipo incorrecto');$e['kind']=$kind;}
 
 function ag_cycles(): array {return ['sa'=>'CFGB Servicios Administrativos','ga'=>'CFGM Gestión Administrativa','af'=>'CFGS Administración y Finanzas','ad'=>'CFGS Asistencia a la Dirección'];}
 function ag_activities(): array {return ['sa'=>'Archivo, digitalización, comunicación básica y apoyo de oficina.','ga'=>'Facturación, documentación comercial, contabilidad auxiliar, atención al cliente y apoyo administrativo.','af'=>'Gestión contable y financiera, fiscalidad, aprovisionamiento, tesorería y recursos humanos.','ad'=>'Organización de agendas, comunicación profesional, documentación, eventos y apoyo a dirección.'];}
@@ -209,3 +209,38 @@ function company_active(array $d,string $id):bool { $master=master_id($id);retur
 function active_company_links(array $d,string $cid):array {return array_filter($d['links'][$cid]??[],fn($l,$id)=>company_active($d,(string)$id),ARRAY_FILTER_USE_BOTH);}
 
 function course_company_profile(array $d,string $cid,string $id,array $link):array{return !empty($d['courses'][$cid]['closed'])&&is_array($link['snapshot']??null)?$link['snapshot']:company($d,$id);}
+
+/** Local postal catalogue, derived from INE electoral street directory. */
+function location_catalogue():array{
+ static $catalogue=null;if($catalogue!==null)return $catalogue;$catalogue=[];
+ $municipalities=[];foreach(location_municipalities() as $m)$municipalities[location_norm($m)]=$m;
+ $file=__DIR__.'/postal-tenerife.csv';if(!is_readable($file))return $catalogue;
+ $fp=fopen($file,'rb');if(!$fp)return $catalogue;
+ $header=fgetcsv($fp,0,',','"','');if(!$header){fclose($fp);return $catalogue;}$header[0]=preg_replace('/^\xEF\xBB\xBF/','',$header[0]);
+ $idx=array_flip($header);foreach(['codigo_postal','municipio_nombre','entidad_singular_nombre','nucleo_nombre'] as $k)if(!isset($idx[$k])){fclose($fp);return $catalogue;}
+ while(($r=fgetcsv($fp,0,',','"',''))!==false){$cp=$r[$idx['codigo_postal']]??'';if(!preg_match('/^38[0-9]{3}$/D',$cp))continue;$raw=trim($r[$idx['municipio_nombre']]??'');$raw=preg_replace('/^(.+),\s*(El|La|Los|Las)$/iu','$2 $1',$raw);$raw=preg_replace('/^(.+)\s*\((El|La|Los|Las)\)$/iu','$2 $1',$raw);$m=$municipalities[location_norm($raw)]??'';if(!$m)continue;
+ foreach(['entidad_singular_nombre','nucleo_nombre'] as $k){$l=trim($r[$idx[$k]]??'');if(!$l||location_norm($l)==='diseminado')continue;$l=preg_replace('/^(.+)\s*\((El|La|Los|Las)\)$/iu','$2 $1',$l);$l=preg_replace('/^(.+),\s*(El|La|Los|Las)$/iu','$2 $1',$l);$catalogue[$m][$l][$cp]=$cp;}}
+ fclose($fp);foreach($catalogue as &$locs){ksort($locs,SORT_NATURAL|SORT_FLAG_CASE);foreach($locs as &$codes){sort($codes,SORT_STRING);}unset($codes);}unset($locs);return $catalogue;
+}
+function location_fields(array $record):void{
+ $cat=location_catalogue();$m=(string)($record['municipality']??'');$l=(string)($record['locality']??'');$p=(string)($record['postal_code']??'');
+ if(!$cat){echo '<small>Catálogo postal no instalado: datos pendientes de validación.</small>';foreach(['municipality'=>'Municipio','locality'=>'Localidad','postal_code'=>'Código postal'] as $k=>$label)input($k,$label,$record[$k]??'');return;}
+ echo '<div class="location-cascade" data-catalogue="'.h(json_encode($cat,JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE)).'"><div class="fields">';
+ $ms=[''=>'Seleccione municipio']+array_combine(location_municipalities(),location_municipalities());if($m&&!isset($ms[$m]))$ms[$m]=$m.' (dato anterior)';
+ select_field('municipality','Municipio',$ms,$m);
+ $ls=[''=>'Seleccione localidad'];foreach($cat[$m]??[] as $key=>$v)$ls[$key]=$key;if($l&&!isset($ls[$l]))$ls[$l]=$l.' (dato anterior)';select_field('locality','Localidad',$ls,$l);
+ $ps=[''=>'Seleccione código postal'];foreach($cat[$m][$l]??[] as $cp)$ps[$cp]=$cp;if($p&&!isset($ps[$p]))$ps[$p]=$p.' (dato anterior)';select_field('postal_code','Código postal',$ps,$p);
+ echo '</div><small>Seleccione municipio, localidad y código postal. Los datos anteriores no reconocidos se conservan hasta que los corrija.</small></div>';
+}
+function location_validate(array $new,array $old=[]):void{
+ $m=$new['municipality']??'';$l=$new['locality']??'';$p=$new['postal_code']??'';
+ if($p!==''&&!preg_match('/^[0-9]{5}$/D',$p))fail('Código postal: cinco dígitos');
+ if($m===($old['municipality']??'')&&$l===($old['locality']??'')&&$p===($old['postal_code']??''))return;
+ $cat=location_catalogue();if(!$cat)return;
+ if(!$m&&($l||$p))fail('Seleccione primero el municipio');if($m&&!in_array($m,location_municipalities(),true))fail('Municipio no reconocido');
+ if($l&&!isset($cat[$m][$l]))fail('Localidad no asociada al municipio seleccionado');
+ if($p&&(!$l||!in_array($p,$cat[$m][$l]??[],true)))fail('Código postal no asociado a la localidad seleccionada');
+}
+function location_post(array $old=[]):array{
+ $v=[];foreach(['municipality','locality','postal_code'] as $k)$v[$k]=array_key_exists($k,$_POST)?field($k,100):($old[$k]??'');location_validate($v,$old);return $v;
+}
