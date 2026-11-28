@@ -197,3 +197,21 @@ function pc_first_send(array &$d,array $cfg,string $dir,string $cid,string $eid)
  flash($ok?'Invitación aceptada por Resend. No autoriza campañas posteriores.':'Envío no confirmado. Revise Resend antes de cualquier nuevo contacto.');
  return '?v=directory&mode=master&c='.rawurlencode($cid).'&e='.rawurlencode($eid);
 }
+
+function pc_first_tick(array &$d,array $cfg,string $dir):bool{
+ if(!mail_ready($cfg)||!pc_open($d,$cfg))return false;
+ $today=date('Y-m-d');$count=0;foreach($d['first_contact']??[] as $r)if(($r['attempt_day']??'')===$today)$count++;
+ if($count>=10)return false;
+ foreach($d['first_contact']??[] as $eid=>$r){if(($r['state']??'')!=='queued')continue;
+ $eid=(string)$eid;$cid=$r['course'];$mail=$r['email'];
+ $valid=company_active($d,$eid)&&$cid===$d['settings']['active']&&empty($d['courses'][$cid]['closed'])&&!isset($d['campaign_optouts'][$mail]);
+ if($valid){$e=company($d,$eid);$valid=in_array($mail,camp_emails($e),true);foreach(company_links($d,$cid,$eid) as $l)if(in_array($l['status']??'',['Rechazada','Interesada','En negociación','Confirmada','Convenio formalizado'],true)||!empty($l['confirmed']))$valid=false;}
+ if(!$valid){$d['first_contact'][$eid]['state']='cancelled';save_db($dir,$d);continue;}
+ $token=bin2hex(random_bytes(32));$hash=hash('sha256',$token);$base=rtrim($cfg['public_url'],'/').'/index.php?v=landing';$url=$base.'&invite='.$token.'#interes';
+ $t=pc_first_template($d,$cfg,$cid,$e);$body=str_replace($base.'#interes',$url,$t['body']);$body.="\n\nEnlace individual para manifestar su interés: ".$url."\nEste enlace no concede acceso privado ni confirma plazas.";
+ $d['first_invites'][$hash]=['company'=>$eid,'email'=>$mail,'course'=>$cid,'expires'=>time()+30*86400];
+ $d['first_contact'][$eid]['reference']=$hash;$d['first_contact'][$eid]['state']='attempted';$d['first_contact'][$eid]['attempt_day']=$today;save_db($dir,$d);
+ $ok=resend_mail($cfg,$dir,$mail,$t['subject'],$body,'first-'.hash('sha256',$eid.$mail));
+ $d['first_contact'][$eid]['state']=$ok?'accepted':'uncertain';$d['first_contact'][$eid]['result_at']=date(DATE_ATOM);audit($d,$ok?'Invitación individual aceptada por Resend':'Resultado incierto de invitación individual',$cid,$eid);save_db($dir,$d);return true;
+ }return false;
+}
