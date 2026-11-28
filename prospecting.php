@@ -125,14 +125,14 @@ function pc_first_candidates(array $d,string $cid):array{
  $blocked=false;foreach($links as $l)if(in_array($l['status']??'',['Rechazada','Interesada','En negociación','Confirmada','Convenio formalizado'],true)||!empty($l['confirmed']))$blocked=true;
  $used=[];foreach($d['first_contact']??[] as $old)if(in_array($old['state']??'',['accepted','attempted','uncertain','queued'],true))$used[$old['email']]=true;
  $mails=array_values(array_filter($mails,fn($m)=>!isset($used[$m])));
- $status=match($state){'accepted'=>'Aceptado por Resend','queued'=>'En cola','attempted','uncertain'=>'Revisar resultado','cancelled'=>'Cancelado',default=>$blocked?'No elegible':(!$mails?'Sin correo disponible':'Pendiente de autorización')};
+ $status=match($state){'accepted'=>match($r['delivery']??''){'email.delivered'=>'Entregado','email.bounced'=>'Rebotado','email.complained'=>'Queja de spam','email.delivery_delayed'=>'Entrega demorada','email.failed'=>'Fallido',default=>'Aceptado por Resend'},'queued'=>'En cola','attempted','uncertain'=>'Revisar resultado','cancelled'=>'Cancelado',default=>$blocked?'No elegible':(!$mails?'Sin correo disponible':'Pendiente de autorización')};
  $rows[$id]=['name'=>$e['name'],'entity'=>$e,'mails'=>$mails,'status'=>$status];
  }uasort($rows,fn($a,$b)=>strnatcasecmp(imp_norm($a['name']),imp_norm($b['name'])));return $rows;
 }
 function pc_first_contacts_ui(array $d,array $cfg,string $cid):void{
  $rows=pc_first_candidates($d,$cid);$ready=mail_ready($cfg)&&pc_open($d,$cfg)&&$cid===$d['settings']['active']&&!course($d,$cid)['closed'];
  $totals=array_count_values(array_column($rows,'status'));
- echo '<section class="card"><h2>Centro de primer contacto</h2><p>1. Seleccionar destinatarios autorizados · 2. Revisar mensajes · 3. Confirmar cola · 4. Consultar resultados.</p><div class="metrics">';foreach(['Pendiente de autorización','En cola','Aceptado por Resend','Revisar resultado'] as $st)panel_metric($st,$totals[$st]??0);echo '</div>';
+ echo '<section class="card"><h2>Centro de primer contacto</h2><p>1. Seleccionar destinatarios autorizados · 2. Revisar mensajes · 3. Confirmar cola · 4. Consultar resultados.</p><div class="metrics">';foreach(['Pendiente de autorización','En cola','Aceptado por Resend','Entregado','Rebotado','Queja de spam','Revisar resultado'] as $st)panel_metric($st,$totals[$st]??0);echo '</div>';
  if(!$ready)echo '<p class="notice">Para enviar, configure Resend, publique el formulario y seleccione el curso activo abierto.</p>';
  if(isset($_GET['review'])){$b=$_SESSION['pc_first_batch']??null;if(!$b||$b['course']!==$cid||$b['expires']<time()){echo '<p>La preparación ha caducado.</p></section>';return;}
  echo '<h3>2. Revisar mensajes personalizados</h3><p>Compruebe que cada destinatario ha autorizado realmente esta invitación. No se concede autorización de seguimiento.</p>';
@@ -192,8 +192,8 @@ function pc_first_send(array &$d,array $cfg,string $dir,string $cid,string $eid)
  $d['first_invites'][$hash]=['company'=>$eid,'email'=>$mail,'course'=>$cid,'expires'=>time()+30*86400];
  $d['first_contact'][$eid]=['email'=>$mail,'state'=>'attempted','at'=>date(DATE_ATOM),'authorized_by'=>'admin','scope'=>'one_invitation','reference'=>$hash];
  audit($d,'Autorización individual de primer contacto confirmada',$cid,$eid);save_db($dir,$d);
- $ok=resend_mail($cfg,$dir,$mail,$subject,$body,'first-'.hash('sha256',$eid.$mail));
- $d['first_contact'][$eid]['state']=$ok?'accepted':'uncertain';audit($d,$ok?'Invitación individual aceptada por Resend':'Resultado de invitación incierto; no repetir automáticamente',$cid,$eid);
+ $ok=resend_mail($cfg,$dir,$mail,$subject,$body,'first-'.hash('sha256',$eid.$mail),$providerId);if($providerId)$d['first_contact'][$eid]['provider_id']=$providerId;
+ $d['first_contact'][$eid]['state']=$ok?'accepted':'uncertain';$d['first_contact'][$eid]['attempt_day']=date('Y-m-d');audit($d,$ok?'Invitación individual aceptada por Resend':'Resultado de invitación incierto; no repetir automáticamente',$cid,$eid);
  flash($ok?'Invitación aceptada por Resend. No autoriza campañas posteriores.':'Envío no confirmado. Revise Resend antes de cualquier nuevo contacto.');
  return '?v=directory&mode=master&c='.rawurlencode($cid).'&e='.rawurlencode($eid);
 }
@@ -211,7 +211,7 @@ function pc_first_tick(array &$d,array $cfg,string $dir):bool{
  $t=pc_first_template($d,$cfg,$cid,$e);$body=str_replace($base.'#interes',$url,$t['body']);$body.="\n\nEnlace individual para manifestar su interés: ".$url."\nEste enlace no concede acceso privado ni confirma plazas.";
  $d['first_invites'][$hash]=['company'=>$eid,'email'=>$mail,'course'=>$cid,'expires'=>time()+30*86400];
  $d['first_contact'][$eid]['reference']=$hash;$d['first_contact'][$eid]['state']='attempted';$d['first_contact'][$eid]['attempt_day']=$today;save_db($dir,$d);
- $ok=resend_mail($cfg,$dir,$mail,$t['subject'],$body,'first-'.hash('sha256',$eid.$mail));
+ $ok=resend_mail($cfg,$dir,$mail,$t['subject'],$body,'first-'.hash('sha256',$eid.$mail),$providerId);if($providerId)$d['first_contact'][$eid]['provider_id']=$providerId;
  $d['first_contact'][$eid]['state']=$ok?'accepted':'uncertain';$d['first_contact'][$eid]['result_at']=date(DATE_ATOM);audit($d,$ok?'Invitación individual aceptada por Resend':'Resultado incierto de invitación individual',$cid,$eid);save_db($dir,$d);return true;
  }return false;
 }
