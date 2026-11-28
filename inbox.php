@@ -133,7 +133,7 @@ function ib_outbound_event(array &$d,array $event):int{
  $type=$event['type']??'';$x=$event['data']??null;if(!is_array($x))return 400;
  if($type==='contact.updated'){
   $mail=ib_address($x['email']??null);
-  if($mail&&($x['unsubscribed']??false)===true){$d['campaign_optouts'][$mail]=date(DATE_ATOM);audit($d,'Baja recibida de Resend');}
+  if($mail&&($x['unsubscribed']??false)===true){$d['campaign_optouts'][$mail]=date(DATE_ATOM);$d['campaign_block_reasons'][$mail]='Baja comunicada por Resend';audit($d,'Baja recibida de Resend');}
   return 200;
  }
  if(!in_array($type,['email.sent','email.delivered','email.delivery_delayed','email.bounced','email.complained','email.failed'],true))return 200;
@@ -144,7 +144,7 @@ function ib_outbound_event(array &$d,array $event):int{
  if($old==='email.delivered'&&in_array($type,['email.sent','email.delivery_delayed'],true))return 200;
  if($old===$type)return 200;
  $d['first_contact'][$eid]['delivery']=$type;$d['first_contact'][$eid]['delivery_at']=date(DATE_ATOM);
- if(in_array($type,['email.bounced','email.complained'],true))$d['campaign_optouts'][$r['email']]=date(DATE_ATOM);
+ if(in_array($type,['email.bounced','email.complained'],true)){$d['campaign_optouts'][$r['email']]=date(DATE_ATOM);$d['campaign_block_reasons'][$r['email']]=$type==='email.bounced'?'Rebote de correo':'Queja de correo no deseado';}
  audit($d,'Evento Resend: '.$type,$r['course']??'',(string)$eid);return 200;
  }return 200;
 }
