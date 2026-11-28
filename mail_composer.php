@@ -9,7 +9,7 @@ function mc_rows(array $d,string $cid):array {
  }return $out;
 }
 function mc_templates(array $d,array $cfg,string $cid):array{
- $s=$d['settings'];$center=$s['center'];$year=$d['courses'][$cid]['name'];$url=rtrim($cfg['public_url']??'','/');$sign=$s['tutor']."\nFamilia Profesional de Administración y Gestión\n".$center."\n".$s['contact'];
+ $s=$d['settings'];$center=$s['center'];$year=$d['courses'][$cid]['name'];$url=rtrim($cfg['public_url']??'','/');$sign=$s['tutor']."\nFamilia Profesional de Administración y Gestión\n".$center."\n".$s['contact'].(!empty($s['first_contact_phone'])?"\nTeléfono de contacto: ".$s['first_contact_phone']:"");
  $link=valid_public_url($url)?' o manifiesten su interés en '.$url.'/index.php?v=landing#interes, sin compromiso y sin necesidad de crear una cuenta':'';
  $closing="\n\nSi desean recibir información adicional, respondan a este correo".$link.". Si autorizan futuras comunicaciones sobre FEOE, pueden indicarlo expresamente en su respuesta. Si no desean nuevas propuestas, comuníquennoslo.\n\nAtentamente,\n".$sign;
  return [
