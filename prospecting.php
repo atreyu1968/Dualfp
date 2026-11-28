@@ -63,7 +63,7 @@ function pc_approve(array &$d):string{
  $cid=$r['course'];editable($d,$cid);if(!isset($d['courses'][$cid]['groups'][$r['group']]))fail('Grupo no disponible');
  $eid=field('existing');if(!empty($r['origin_company'])&&$eid!==$r['origin_company'])fail('La solicitud tiene una ficha de origen identificada; revise esa ficha antes de aprobar',409);$e=['name'=>$r['name'],'nif'=>'','zone'=>$r['zone'],'sector'=>$r['sector'],'kind'=>field('kind'),'emails'=>$r['email'],'phone'=>$r['phone'],'contact'=>$r['contact'],'address'=>'','sites'=>[],'tutors'=>[]];
  if(!in_array($e['kind'],['Empresa','Organismo','Asociación'],true))fail('Tipo inválido');
- if($eid){$eid=master_id($eid);if(!company_active($d,$eid))fail('Empresa retirada',409);$e=company($d,$eid);if(!in_array($r['email'],camp_emails($e),true))fail('El correo declarado no figura en la ficha. Compruebe la identidad y actualice la ficha antes de vincular.');}
+ if($eid){$eid=master_id($eid);if(!company_active($d,$eid))fail('Empresa retirada',409);$e=company($d,$eid);if(!in_array($r['email'],camp_emails($e),true)){if(field('add_contact')!=='yes')fail('Confirme la identidad y la incorporación del nuevo correo profesional');$d['companies'][$eid]['emails']=implode('; ',array_unique(array_merge(camp_emails($e),[$r['email']])));$e=$d['companies'][$eid];}}
  else{if(imp_matches(imp_index($d['companies']),$e))fail('Posible empresa duplicada. Revise el directorio y vincule la ficha existente.');$eid=uid();$d['companies'][$eid]=$e;}
  $lid=group_link($d['links'][$cid]??[],$eid,$r['group']);
  if($lid===null){$lid=new_link_key($d['links'][$cid]??[],$eid,$r['group']);$l=imp_link($r['group']);$l['status']='Interesada';$l['requested']=$r['requested'];$d['links'][$cid][$lid]=$l;}
@@ -92,8 +92,8 @@ function pc_interests_ui(array $d,string $cid):void{
  }
  if(!empty($r['reviewed_at']))echo '<p>Revisión manual: '.h($r['reviewed_at'].' · '.$r['review_note']).'</p>';
  if(pc_reviewed($r)&&!$d['courses'][$cid]['closed']){
- $opts=[''=>'Crear ficha nueva (si no hay duplicados)'];foreach($d['companies'] as $eid=>$e)if(company_active($d,(string)$eid)&&in_array($r['email'],camp_emails($e),true))$opts[$eid]=$e['name'].' · '.$e['zone'];
- form_start('pc_approve',['id'=>$id]);select_field('existing','Empresa (revise identidad)',$opts,$r['origin_company']??'');if(!empty($r['origin_company']))echo '<p>Ficha de origen identificada mediante invitación individual y coincidencia de correo.</p>';select_field('kind','Tipo para alta nueva',['Empresa'=>'Empresa','Organismo'=>'Organismo','Asociación'=>'Asociación']);end_form('Aprobar solicitud');
+ $opts=[''=>'Crear ficha nueva (si no hay duplicados)'];$matches=[];$others=[];foreach($d['companies'] as $eid=>$e)if(company_active($d,(string)$eid)){$label=$e['name'].' · '.$e['zone'];if(in_array($r['email'],camp_emails($e),true)||imp_norm($r['name'])===imp_norm($e['name'])||(!empty($r['phone'])&&preg_replace('/[^0-9]/','',$r['phone'])===preg_replace('/[^0-9]/','',$e['phone']??'')))$matches[$eid]='Posible coincidencia: '.$label;else $others[$eid]=$label;}asort($matches);asort($others);$opts+=$matches+$others;
+ form_start('pc_approve',['id'=>$id]);select_field('existing','Empresa (revise identidad)',$opts,$r['origin_company']??'');if(!empty($r['origin_company']))echo '<p>Ficha de origen identificada mediante invitación individual y coincidencia de correo.</p>';select_field('kind','Tipo para alta nueva',['Empresa'=>'Empresa','Organismo'=>'Organismo','Asociación'=>'Asociación']);echo '<label class="check"><input type="checkbox" name="add_contact" value="yes"> He comprobado la identidad y autorizo incorporar el correo declarado si es nuevo (no concede permiso de campaña).</label>';end_form('Aprobar solicitud');
  }
  form_start('pc_discard',['id'=>$id]);end_form('Descartar solicitud');echo '</div>';
  }if(!$n)echo '<p>No hay solicitudes pendientes en este curso.</p>';
@@ -109,7 +109,7 @@ function pc_contact_ui(array $d,array $cfg,string $cid,string $eid):void{
  }
 }
 function pc_action(string $action,array &$d,array $cfg,string $dir,string $cid,string $eid):string{
- if($action==='pc_verify')return pc_verify($d);if($action==='pc_first_prepare')return pc_first_prepare($d,$cfg,$cid);if($action==='pc_first_queue')return pc_first_queue($d,$cfg,$cid);if($action==='pc_first_send')return pc_first_send($d,$cfg,$dir,$cid,$eid);
+ if($action==='pc_verify')return pc_verify($d);if(in_array($action,['pc_first_settings','pc_first_cancel'],true))return pc_first_control($action,$d,$cfg,$cid,$eid);if($action==='pc_first_prepare')return pc_first_prepare($d,$cfg,$cid);if($action==='pc_first_queue')return pc_first_queue($d,$cfg,$cid);if($action==='pc_first_send')return pc_first_send($d,$cfg,$dir,$cid,$eid);
  require_admin();
  if($action==='pc_manual_review')return pc_manual_review($d);
  if($action==='pc_approve')return pc_approve($d);
@@ -138,7 +138,7 @@ function pc_first_contacts_ui(array $d,array $cfg,string $cid):void{
  echo '<h3>2. Revisar mensajes personalizados</h3><p>Compruebe que cada destinatario ha autorizado realmente esta invitación. No se concede autorización de seguimiento.</p>';
  form_start('pc_first_queue',['c'=>$cid,'batch'=>$b['token']]);foreach($b['rows'] as $id=>$mail){$e=company($d,$id);$t=pc_first_template($d,$cfg,$cid,$e);echo '<details><summary>'.h($e['name'].' · '.$mail).'</summary><p>'.h($t['subject']).'</p><pre class="pre">'.h($t['body']."\n\n[Enlace individual generado al enviar]").'</pre></details><label class="check"><input type="checkbox" name="authorized[]" value="'.h($id).'"> Confirmo autorización de '.h($mail).'</label>';}
  echo '<p>Solo se pondrán en cola las invitaciones confirmadas individualmente.</p>';end_form('3. Confirmar y poner en cola');echo '</section>';return;}
- echo '<h3>1. Seleccionar empresas</h3>';form_start('pc_first_prepare',['c'=>$cid]);echo '<div class="actions"><button type="button" class="secondary" id="pc-select-visible">Seleccionar visibles (máximo 50)</button><button type="button" class="secondary" id="pc-clear-selection">Limpiar selección</button><span id="pc-selection-count" role="status"></span></div>';echo '<div class="fields"><label>Buscar<input id="search" placeholder="Empresa, localidad, sector o correo"></label>';directory_location_filters();echo '<label>Estado<select id="status-filter"><option value="">Todos</option>';foreach(array_keys($totals) as $st)echo '<option>'.h($st).'</option>';echo '</select></label></div><p id="directory-count" role="status"></p><div class="scroll"><table id="directory"><thead><tr><th>Seleccionar</th><th>Empresa</th><th>Correo de destino</th><th>Estado</th></tr></thead><tbody>';
+ echo '<h3>Control de envíos</h3>';form_start('pc_first_settings',['c'=>$cid]);select_field('paused','Estado de la cola',['yes'=>'Pausada','no'=>'En funcionamiento'],!empty($d['first_settings']['paused'])?'yes':'no');input('daily_limit','Máximo diario de invitaciones (1–50)',$d['first_settings']['daily_limit']??10,'number',true);end_form('Guardar control de cola');echo '<p>La pausa afecta a la cola de primer contacto, no a los mensajes transaccionales ni a otras campañas.</p>';foreach($d['first_contact']??[] as $id=>$r)if(($r['state']??'')==='queued'&&($r['course']??'')===$cid){form_start('pc_first_cancel',['c'=>$cid,'e'=>$id]);echo '<p>'.h($d['companies'][$id]['name']??$id).' · '.h($r['email']).'</p>';echo '<label class="check"><input type="checkbox" name="confirm" value="yes" required> Cancelar esta invitación pendiente</label>';end_form('Cancelar');}echo '<h3>1. Seleccionar empresas</h3>';form_start('pc_first_prepare',['c'=>$cid]);echo '<div class="actions"><button type="button" class="secondary" id="pc-select-visible">Seleccionar visibles (máximo 50)</button><button type="button" class="secondary" id="pc-clear-selection">Limpiar selección</button><span id="pc-selection-count" role="status"></span></div>';echo '<div class="fields"><label>Buscar<input id="search" placeholder="Empresa, localidad, sector o correo"></label>';directory_location_filters();echo '<label>Estado<select id="status-filter"><option value="">Todos</option>';foreach(array_keys($totals) as $st)echo '<option>'.h($st).'</option>';echo '</select></label></div><p id="directory-count" role="status"></p><div class="scroll"><table id="directory"><thead><tr><th>Seleccionar</th><th>Empresa</th><th>Correo de destino</th><th>Estado</th></tr></thead><tbody>';
  foreach($rows as $id=>$r){$e=$r['entity'];echo '<tr data-locations="'.directory_location_attrs($e).'" data-status="'.h($r['status']).'"><td>';if($ready&&$r['status']==='Pendiente de autorización')echo '<input type="checkbox" name="selected[]" value="'.h($id).'">';echo '</td><td><a href="'.h('?v=directory&mode=master&c='.$cid.'&e='.$id).'">'.h($r['name']).'</a><small>'.h(($e['zone']??'').' · '.($e['sector']??'')).'</small></td><td>';if($r['status']==='Pendiente de autorización') {echo '<select name="recipient['.h($id).']">';foreach($r['mails'] as $m)echo '<option>'.h($m).'</option>';echo '</select>';}else echo h($d['first_contact'][$id]['email']??'—');echo '</td><td>'.h($r['status']).'</td></tr>';}
  echo '</tbody></table></div>';if($ready)end_form('2. Revisar invitaciones seleccionadas');else echo '</form>';echo '<p>Los envíos se realizan individualmente por el trabajador de la aplicación. Un resultado incierto no se reintenta automáticamente.</p></section>';
 }
@@ -199,9 +199,9 @@ function pc_first_send(array &$d,array $cfg,string $dir,string $cid,string $eid)
 }
 
 function pc_first_tick(array &$d,array $cfg,string $dir):bool{
- if(!mail_ready($cfg)||!pc_open($d,$cfg))return false;
+ if(!mail_ready($cfg)||!pc_open($d,$cfg)||!empty($d['first_settings']['paused']))return false;
  $today=date('Y-m-d');$count=0;foreach($d['first_contact']??[] as $r)if(($r['attempt_day']??'')===$today)$count++;
- if($count>=10)return false;
+ if($count>=max(1,min(50,(int)($d['first_settings']['daily_limit']??10))))return false;
  foreach($d['first_contact']??[] as $eid=>$r){if(($r['state']??'')!=='queued')continue;
  $eid=(string)$eid;$cid=$r['course'];$mail=$r['email'];
  $valid=company_active($d,$eid)&&$cid===$d['settings']['active']&&empty($d['courses'][$cid]['closed'])&&!isset($d['campaign_optouts'][$mail]);
@@ -214,4 +214,11 @@ function pc_first_tick(array &$d,array $cfg,string $dir):bool{
  $ok=resend_mail($cfg,$dir,$mail,$t['subject'],$body,'first-'.hash('sha256',$eid.$mail));
  $d['first_contact'][$eid]['state']=$ok?'accepted':'uncertain';$d['first_contact'][$eid]['result_at']=date(DATE_ATOM);audit($d,$ok?'Invitación individual aceptada por Resend':'Resultado incierto de invitación individual',$cid,$eid);save_db($dir,$d);return true;
  }return false;
+}
+
+function pc_first_control(string $action,array &$d,array $cfg,string $cid,string $eid):string{
+ require_admin();editable($d,$cid);
+ if($action==='pc_first_settings'){$n=integer('daily_limit',50);if($n<1)fail('Límite inválido');$d['first_settings']=['paused'=>field('paused')==='yes','daily_limit'=>$n];audit($d,'Control de cola actualizado',$cid);}
+ else{if(field('confirm')!=='yes'||($d['first_contact'][$eid]['state']??'')!=='queued'||($d['first_contact'][$eid]['course']??'')!==$cid)fail('Invitación no cancelable');$d['first_contact'][$eid]['state']='cancelled';audit($d,'Invitación cancelada',$cid,$eid);}
+ return '?v=first_contacts&c='.rawurlencode($cid);
 }
