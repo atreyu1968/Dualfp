@@ -92,7 +92,7 @@ function pc_interests_ui(array $d,string $cid):void{
  }
  if(!empty($r['reviewed_at']))echo '<p>Revisión manual: '.h($r['reviewed_at'].' · '.$r['review_note']).'</p>';
  if(pc_reviewed($r)&&!$d['courses'][$cid]['closed']){
- $opts=[''=>'Crear ficha nueva (si no hay duplicados)'];foreach($d['companies'] as $eid=>$e)if(in_array($r['email'],camp_emails($e),true))$opts[$eid]=$e['name'].' · '.$e['zone'];
+ $opts=[''=>'Crear ficha nueva (si no hay duplicados)'];foreach($d['companies'] as $eid=>$e)if(company_active($d,(string)$eid)&&in_array($r['email'],camp_emails($e),true))$opts[$eid]=$e['name'].' · '.$e['zone'];
  form_start('pc_approve',['id'=>$id]);select_field('existing','Empresa (revise identidad)',$opts);select_field('kind','Tipo para alta nueva',['Empresa'=>'Empresa','Organismo'=>'Organismo','Asociación'=>'Asociación']);end_form('Aprobar solicitud');
  }
  form_start('pc_discard',['id'=>$id]);end_form('Descartar solicitud');echo '</div>';
@@ -120,7 +120,7 @@ function pc_action(string $action,array &$d,array $cfg,string $dir,string $cid,s
 
 function pc_first_contacts_ui(array $d,string $cid):void{
  $c=course($d,$cid);$closed=$c['closed'];$rows=[];$totals=['Pendiente de primer contacto'=>0,'Contacto registrado'=>0,'Campañas autorizadas'=>0,'Colaboración en curso'=>0,'No contactar'=>0,'Sin correo'=>0];
- foreach($d['links'][$cid]??[] as $eid=>$l){
+ foreach(active_company_links($d,$cid) as $eid=>$l){
   $e=$l['snapshot']??company($d,(string)$eid);$mails=camp_emails($e);$available=array_values(array_filter($mails,fn($m)=>!isset($d['campaign_optouts'][$m])));$allowed=array_filter($available,fn($m)=>camp_allowed($d,(string)$eid,$m));
   $status=(!$mails?'Sin correo':(!$available?'No contactar':(in_array($l['status'],['Interesada','En negociación','Confirmada','Convenio formalizado'],true)||$l['confirmed']>0?'Colaboración en curso':($l['status']==='Rechazada'?'No contactar':($allowed?'Campañas autorizadas':($l['history']||in_array($l['status'],['Contactada','Sin respuesta'],true)?'Contacto registrado':'Pendiente de primer contacto'))))));
   $totals[$status]++;$rows[]=[$eid,$e,$l,$status,$available];
