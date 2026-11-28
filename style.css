@@ -79,3 +79,63 @@ tr.needs-reactivation>td{background:#dbeafe!important;color:#1e40af}tr.needs-rea
 @media(max-width:760px){.private-ui .topbar{gap:6px;padding:0 8px}.private-ui .top-brand{display:none}.private-ui .top-course{gap:5px;margin-left:auto}.private-ui .top-course-current{font-size:11px}.private-ui .top-course-label select{max-width:125px;font-size:11px}.private-ui .top-actions{gap:4px}.private-ui .top-logout-long{display:none}.private-ui .top-logout-short{display:inline}.private-ui .topbar .mobile-menu{margin:0;padding:4px 6px;font-size:11px;white-space:nowrap}}
 @media(max-width:360px){.private-ui .topbar{gap:4px;padding:0 4px}.private-ui .top-course-current{font-size:10px;gap:2px}.private-ui .top-course-label select{max-width:110px}.private-ui .top-logout,.private-ui .top-course-go{padding:0 5px}}
 .private-ui .top-course-go[hidden]{display:none}
+
+/* High-density private workspace, tuned for 1366x768 laptops. */
+.private-ui{font-size:13px;line-height:1.35;--sidebar-width:190px}
+.private-ui .workspace{max-width:none;padding:12px 16px 20px}
+.private-ui .heading{gap:8px;margin:0 0 10px;flex-wrap:nowrap}
+.private-ui .heading h1{font-size:23px;margin:2px 0 0;letter-spacing:-.4px}
+.private-ui .eyebrow{font-size:10px;letter-spacing:.7px;margin:0 0 3px}
+.private-ui h2{font-size:16px;margin:0 0 8px;line-height:1.2}
+.private-ui h3{font-size:14px;margin:9px 0 5px}
+.private-ui p{margin:5px 0}
+.private-ui small{font-size:11px;line-height:1.35}
+.private-ui .card{padding:10px 12px;margin-bottom:9px;border-radius:8px;box-shadow:none}
+.private-ui .record-card{max-width:none;margin:0 0 10px;padding:12px 14px}
+.private-ui .record-header{gap:9px;padding-bottom:7px;margin-bottom:8px}
+.private-ui .record-header h2,.private-ui .record-header p{margin:2px 0}
+.private-ui .record-avatar{width:34px;height:34px;font-size:13px;border-radius:8px}
+.private-ui .record-card h3{font-size:13px;margin:9px 0 5px;padding-bottom:4px}
+.private-ui .fields,.private-ui .record-card .fields{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px 10px;align-items:start}
+.private-ui .location-cascade{min-width:0;grid-column:1/-1}
+.private-ui .location-cascade .fields{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px 10px}
+.private-ui .fields label,.private-ui label{font-size:12px;line-height:1.25;margin:3px 0}
+.private-ui .workspace input:not([type=checkbox]):not([type=radio]):not([type=hidden]),.private-ui .workspace select,.private-ui .workspace textarea{font-size:13px;padding:4px 7px;margin-top:3px;border-radius:5px;line-height:1.3;min-height:29px}
+.private-ui .workspace textarea{min-height:46px;resize:vertical}
+.private-ui .workspace input[type=checkbox],.private-ui .workspace input[type=radio]{width:15px;height:15px;margin:2px 0 0;flex:none}
+.private-ui .check{gap:6px;align-items:center}
+.private-ui .workspace button,.private-ui .workspace .button{font-size:12px;line-height:1.25;padding:5px 9px;margin:3px 0;border-radius:5px}
+.private-ui .record-toolbar{gap:7px;margin-bottom:7px}
+.private-ui .actions{gap:6px;margin:5px 0}
+.private-ui .metrics{gap:8px;margin-bottom:9px;grid-template-columns:repeat(auto-fit,minmax(125px,1fr))}
+.private-ui .metrics .metric{padding:7px 10px}
+.private-ui .metric strong{font-size:25px;line-height:1.2}
+.private-ui .two,.private-ui .grid3{gap:8px}
+.private-ui table{font-size:12px;line-height:1.3;min-width:540px}
+.private-ui th,.private-ui td,.private-ui .record-table td{padding:5px 7px;vertical-align:middle}
+.private-ui th{font-size:10px;letter-spacing:.25px}
+.private-ui tbody tr:nth-child(even){background:#f8fafc}
+.private-ui tbody tr:hover{background:#edf5f8}
+.private-ui table .button,.private-ui table button{margin:0;padding:4px 7px;font-size:11px}
+.private-ui table small{margin:2px 0 0}
+.private-ui .record-pill,.private-ui .status-pill{padding:2px 6px;font-size:11px;line-height:1.25}
+.private-ui details{padding:4px 0}
+.private-ui details summary{padding:4px 0}
+.private-ui .notice,.private-ui .workspace .notice{margin:6px 0;padding:7px 9px}
+.private-ui .groupbar{padding:8px 11px;margin-bottom:8px;gap:8px}
+.private-ui .groupbar strong{font-size:14px}
+.private-ui .switcher{gap:5px}
+.private-ui .sidebar{padding:7px 7px}
+.private-ui .sidebar nav a{padding:5px 7px;margin:1px 0;font-size:12px}
+.private-ui .navlabel{margin:9px 7px 3px}
+.private-ui .student-operations{margin-top:8px;border-top:1px solid #dce5ef}
+.private-ui .student-operations summary{font-size:12px;color:#23436a}
+.private-ui .student-operations .fields{grid-template-columns:2fr 1fr}
+.private-ui #dir-selection textarea{min-height:38px}
+.private-ui .directory-tools{margin:5px 0}
+.private-ui .directory-tools>summary{color:#23436a;font-weight:650}
+.private-ui .field-wide{grid-column:span 2}
+@media(min-width:1500px){.private-ui .fields,.private-ui .record-card .fields{grid-template-columns:repeat(5,minmax(0,1fr))}}
+@media(max-width:1100px){.private-ui .fields,.private-ui .record-card .fields{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:760px){.private-ui .workspace{padding:9px}.private-ui .heading{flex-wrap:wrap}.private-ui .fields,.private-ui .record-card .fields,.private-ui .location-cascade .fields{grid-template-columns:repeat(2,minmax(0,1fr))}.private-ui .record-card{padding:9px}.private-ui .student-operations .fields{grid-template-columns:1fr}}
+@media(max-width:480px){.private-ui .fields,.private-ui .record-card .fields,.private-ui .location-cascade .fields{grid-template-columns:1fr}.private-ui .field-wide{grid-column:auto}}
