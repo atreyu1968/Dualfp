@@ -21,7 +21,7 @@ function fail(string $m,int $code=400): never {
  if($role&&!empty($_SESSION['csrf']))echo '<form method="post" action="index.php">'.post_hidden('logout').'<button class="secondary" type="submit">Cerrar sesión</button></form>';
  echo '</div></section></main></body></html>';exit;
 }
-function go(string $q=''): never {header('Location: index.php'.$q);exit;}
+function go(string $q=''): never {header('Location: index.php'.$q,true,303);exit;}
 function field(string $k,int $max=500): string {$v=$_POST[$k]??'';if(!is_string($v)||strlen($v)>$max)fail('Campo inválido: '.$k);return trim($v);}
 function integer(string $k,int $max=500): int {$v=filter_var($_POST[$k]??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>0,'max_range'=>$max]]);if($v===false)fail('Cantidad inválida');return $v;}
 function email(string $k): string {$v=strtolower(field($k,254));if(!filter_var($v,FILTER_VALIDATE_EMAIL))fail('Correo no válido');return $v;}
@@ -81,7 +81,7 @@ function company_link_scope(array $d,string $cid,string $id): array {
     return participation($d,$cid,$id);
 }
 function collaboration_label(array $d,string $cid,string $id): string {
-    $l=participation($d,$cid,$id);$e=$l['snapshot']??company($d,$id);
+    $l=participation($d,$cid,$id);$e=course_company_profile($d,$cid,$id,$l);
     return $e['name'].' · '.($d['courses'][$cid]['groups'][$l['group']]['name']??$l['group']);
 }
 
@@ -207,3 +207,5 @@ function company_remove_ui(array $d,string $cid,string $eid):void{
 // Single source of truth for operational company visibility.
 function company_active(array $d,string $id):bool { $master=master_id($id);return isset($d['companies'][$master])&&empty($d['companies'][$master]['directory_state']); }
 function active_company_links(array $d,string $cid):array {return array_filter($d['links'][$cid]??[],fn($l,$id)=>company_active($d,(string)$id),ARRAY_FILTER_USE_BOTH);}
+
+function course_company_profile(array $d,string $cid,string $id,array $link):array{return !empty($d['courses'][$cid]['closed'])&&is_array($link['snapshot']??null)?$link['snapshot']:company($d,$id);}
