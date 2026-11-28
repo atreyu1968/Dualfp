@@ -54,3 +54,5 @@
 tr.missing-email>td{background:#fff1df!important;color:#753a00}tr.missing-email>td:first-child{box-shadow:inset 4px 0 #e58b24}tr.missing-email a{color:#8c4400}.email-warning{display:block;color:#924900;font-weight:650;font-size:.86em;margin-top:5px}
 
 tr.blocked-email>td{background:#fee2e2!important;color:#811d1d}tr.blocked-email>td:first-child{box-shadow:inset 4px 0 #dc2626}tr.blocked-email a{color:#991b1b}.email-block-warning{display:block;color:#991b1b;font-weight:650;font-size:.86em;margin-top:5px}
+
+tr.needs-reactivation>td{background:#dbeafe!important;color:#1e40af}tr.needs-reactivation>td:first-child{box-shadow:inset 4px 0 #2563eb}tr.season-optout>td{background:#f3e8ff!important;color:#6b21a8}tr.season-optout>td:first-child{box-shadow:inset 4px 0 #9333ea}.reactivation-warning{display:block;color:#1e40af;font-weight:650}.season-warning{display:block;color:#6b21a8;font-weight:650}
