@@ -25,7 +25,7 @@ function ib_matching(array $d,string $from):array {
 }
 function ib_ingest(array &$d,array $event):int {
  $cfg=ib_config($d);if(!$cfg['enabled'])return 503;
- if(($event['type']??'')!=='email.received')return 200;
+ if(($event['type']??'')!=='email.received')return ib_outbound_event($d,$event);
  $x=$event['data']??null;if(!is_array($x)||!ib_valid_id($x['email_id']??null)||!is_array($x['to']??null))return 400;
  $id=strtolower($x['email_id']);$to=array_map('ib_address',$x['to']);if(!in_array($cfg['address'],$to,true))return 200;
  if(isset($d['inbox'][$id])||isset($d['inbox_deleted'][$id]))return 200;
@@ -105,7 +105,7 @@ function ib_action(string $action,array &$d,array $cfg,string $dir):string {
 function ib_ui(array $d,array $cfg):void {
  $ic=ib_config($d);$all=$d['inbox']??[];$new=count(array_filter($all,fn($m)=>$m['state']==='new'));
  echo '<section class="card"><h2>Buzón de empresas · '.h($new).' pendientes</h2><p>Los mensajes requieren revisión. Los seguimientos pendientes al mismo remitente quedan retenidos mientras haya mensajes nuevos. No se confirman plazas automáticamente.</p><details><summary>Configuración de recepción Resend</summary>';
- echo '<p>Webhook: <code>'.h(rtrim($cfg['public_url']??'','/').'/index.php?v=inbound_webhook').'</code> · evento email.received</p>';
+ echo '<p>Webhook: <code>'.h(rtrim($cfg['public_url']??'','/').'/index.php?v=inbound_webhook').'</code> · eventos email.received, email.sent, email.delivered, email.delivery_delayed, email.bounced, email.complained, email.failed y contact.updated</p>';
  form_start('ib_settings');input('address','Dirección exacta de recepción',$ic['address'],'email');input('key','API key de recepción (vacío conserva; '.($ic['key']?'configurada':'sin configurar').')','','password');input('secret','Secreto whsec_ (vacío conserva; '.($ic['secret']?'configurado':'sin configurar').')','','password');
  echo '<label class="check"><input type="checkbox" name="enabled" value="yes"'.($ic['enabled']?' checked':'').'> Activar recepción</label><label class="check"><input type="checkbox" name="clear" value="yes"> Borrar ambas claves (desactivar primero)</label>';input('current_password','Contraseña actual de administración','','password',true);end_form('Guardar recepción');echo '</details></section>';
  $id=is_string($_GET['id']??null)?$_GET['id']:'';$m=$all[$id]??null;
@@ -127,4 +127,24 @@ function ib_ui(array $d,array $cfg):void {
  $filter=is_string($_GET['filter']??null)?$_GET['filter']:'new';if(!in_array($filter,['new','linked','archived','all'],true))$filter='new';
  echo '<section class="card"><div class="actions">';foreach(['new'=>'Pendientes','linked'=>'Vinculados','archived'=>'Archivados','all'=>'Todos'] as $k=>$label)echo '<a class="button secondary" href="?v=inbox&amp;filter='.h($k).'">'.h($label).'</a>';echo '</div><div class="scroll"><table><tr><th>Fecha</th><th>Remitente</th><th>Asunto</th><th>Estado</th></tr>';
  uasort($all,fn($a,$b)=>strcmp($b['at'],$a['at']));foreach($all as $id=>$m){if($filter!=='all'&&$filter!==$m['state'])continue;echo '<tr><td>'.h($m['at']).'</td><td>'.h($m['from']?:'No identificado').'</td><td><a href="?v=inbox&amp;id='.h($id).'">'.h($m['subject']?:'(Sin asunto)').'</a></td><td>'.h($m['state'].' / '.$m['fetch']).'</td></tr>';}echo '</table></div></section>';
+}
+
+function ib_outbound_event(array &$d,array $event):int{
+ $type=$event['type']??'';$x=$event['data']??null;if(!is_array($x))return 400;
+ if($type==='contact.updated'){
+  $mail=ib_address($x['email']??null);
+  if($mail&&($x['unsubscribed']??false)===true){$d['campaign_optouts'][$mail]=date(DATE_ATOM);audit($d,'Baja recibida de Resend');}
+  return 200;
+ }
+ if(!in_array($type,['email.sent','email.delivered','email.delivery_delayed','email.bounced','email.complained','email.failed'],true))return 200;
+ $id=$x['email_id']??null;if(!ib_valid_id($id))return 400;
+ foreach($d['first_contact']??[] as $eid=>$r){if(($r['provider_id']??'')!==$id)continue;
+ $old=$r['delivery']??'';$terminal=['email.bounced','email.complained','email.failed'];
+ if(in_array($old,$terminal,true)&&$type!=='email.complained')return 200;
+ if($old==='email.delivered'&&in_array($type,['email.sent','email.delivery_delayed'],true))return 200;
+ if($old===$type)return 200;
+ $d['first_contact'][$eid]['delivery']=$type;$d['first_contact'][$eid]['delivery_at']=date(DATE_ATOM);
+ if(in_array($type,['email.bounced','email.complained'],true))$d['campaign_optouts'][$r['email']]=date(DATE_ATOM);
+ audit($d,'Evento Resend: '.$type,$r['course']??'',(string)$eid);return 200;
+ }return 200;
 }
