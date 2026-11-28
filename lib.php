@@ -175,7 +175,7 @@ function company_link_delete_blockers(array $d,string $cid,string $eid):array{
  return $reasons;
 }
 function company_delete_blockers(array $d,string $master):array{
- $reasons=[];$e=$d['companies'][$master]??null;if(!$e)return ['Ficha inexistente'];
+ $reasons=[];$e=$d['companies'][$master]??null;if(!$e)return ['Ficha inexistente'];if(!empty($e['ever_assigned']))$reasons[]='Historial de alumnado asignado';
  foreach($d['links']??[] as $cid=>$links)foreach($links as $id=>$l)if(master_id((string)$id)===$master)$reasons=array_merge($reasons,company_link_delete_blockers($d,(string)$cid,(string)$id));
  foreach(['accounts','invites','interest_evidence'] as $k)foreach($d[$k]??[] as $v)if(($v['company']??'')===$master){$reasons[]='Cuenta, invitación o evidencia de interés asociada';break;}
  if(!empty($d['campaign_permissions'][$master]))$reasons[]='Permisos de comunicaciones registrados';
@@ -203,3 +203,7 @@ function company_remove_ui(array $d,string $cid,string $eid):void{
   else{form_start($action,['c'=>$cid,'e'=>$eid]);input('current_password','Contraseña actual de administración','','password',true);echo '<label class="check"><input type="checkbox" name="confirm" value="yes" required> Confirmo: '.h($label.' · '.$e['name']).'.</label>';end_form($label);}echo '</details>';
  }echo '</section>';
 }
+
+// Single source of truth for operational company visibility.
+function company_active(array $d,string $id):bool { $master=master_id($id);return isset($d['companies'][$master])&&empty($d['companies'][$master]['directory_state']); }
+function active_company_links(array $d,string $cid):array {return array_filter($d['links'][$cid]??[],fn($l,$id)=>company_active($d,(string)$id),ARRAY_FILTER_USE_BOTH);}
