@@ -73,3 +73,5 @@ for(const btn of document.querySelectorAll('[data-copy]'))btn.addEventListener('
 }
 
 for(const f of document.querySelectorAll('.dir-single-trash'))f.addEventListener('submit',e=>{if(!confirm('¿Enviar esta empresa a la papelera del directorio general? Afecta a todos los cursos.'))e.preventDefault();});
+
+{const select=document.getElementById('pc-select-visible'),clear=document.getElementById('pc-clear-selection'),count=document.getElementById('pc-selection-count');if(select&&clear&&count){const boxes=[...document.querySelectorAll('#directory input[name="selected[]"]')];const update=()=>{count.textContent=boxes.filter(b=>b.checked).length+' de 50 seleccionadas';};select.addEventListener('click',()=>{let n=boxes.filter(b=>b.checked).length;for(const b of boxes){if(n>=50)break;if(!b.checked&&!b.closest('tr').hidden){b.checked=true;n++;}}update();});clear.addEventListener('click',()=>{boxes.forEach(b=>b.checked=false);update();});boxes.forEach(b=>b.addEventListener('change',()=>{if(boxes.filter(x=>x.checked).length>50)b.checked=false;update();}));update();}}
